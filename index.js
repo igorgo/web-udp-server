@@ -70,11 +70,11 @@ function addProcessHandlers() {
 
   process.on('uncaughtException', async err => {
     await log.error(err)
-    void shutdown(1)
+    await shutdown(1)
   })
   process.on('unhandledRejection', async err => {
     await log.error(err)
-    void shutdown(1)
+    await shutdown(1)
   })
 }
 
@@ -112,11 +112,12 @@ async function runServer() {
 }
 
 async function shutdown(code) {
+  if (process.isMaster) return
   await log.server('Shutdown (SIGTERM/SIGINT) Initialised.')
   await db.close()
   await log.server('Database connection closed.')
 //  log.server('Web server closed to connections.')
-  log.server('Shutdown complete.')
+  await log.server('Shutdown complete.')
   await log.close()
   process.exit(code || 0)
 }
