@@ -52,6 +52,13 @@ log.fileTypes = ['server', 'error', 'debug', 'warning', 'access', 'auth', 'slow'
 log.dir = path.join(c.DIR, 'log')
 log.files = new Map()
 
+log.oraErrorExtract = msg => {
+  const messages = msg.split(/ORA-\d\d\d\d\d:\s/)
+  if (messages.length>1) return messages[1]
+  else return msg
+}
+
+
 log.init = () => {
   log.active = false
   if (!nconf.get('app:log')) return
