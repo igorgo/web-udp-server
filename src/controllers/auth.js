@@ -5,7 +5,20 @@ const db = require('../db')
 
 const auth = module.exports
 
-const login = async (socket, data) => {
+async function getUserData (socket, user) {
+  try {
+    const res = await db.executePub(`
+select S02 as PARAM_NAME,
+       S01 as STR_VAL,
+       N01 as NUM_VAL,
+       D01 as DAT_VAL
+  from table(UDO_PACKAGE_NODEWEB_IFACE.GET_USERDATA)
+    `)
+    socket.emit('user_data_loaded', res.rows)
+  }
+}
+
+async function login (socket, data) {
   try {
     const res = await db.logon(data.user, data.pass)
     socket.emit('authorized', res)
@@ -15,7 +28,7 @@ const login = async (socket, data) => {
   }
 }
 
-const logoff = async (socket, data) => {
+async function logoff (socket, data) {
   try {
     const res = await db.logoff(data.sessionID)
     socket.emit('unauthorized')
@@ -25,8 +38,7 @@ const logoff = async (socket, data) => {
   }
 }
 
-
-const validate = async (socket, data) => {
+async function validate (socket, data) {
   try {
     const conn = await db.getConnection(data.sessionID)
     conn.close()
