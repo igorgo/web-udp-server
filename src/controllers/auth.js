@@ -2,6 +2,7 @@
 
 const log = require('../logger')
 const db = require('../db')
+const sessions = require('../sessions')
 
 const auth = module.exports
 
@@ -24,6 +25,13 @@ async function login(socket, data) {
   try {
     const res = await db.logon(data.user, data.pass)
     socket.sessionID = res.sessionID
+    sessions.start(res.sessionID)
+    const params = db.createParams()
+    params.add('IS_PMO').dirOut().typeNumber()
+    const env = await db.execute(socket.sessionID, 'begin UDO_PACKAGE_NODEWEB_IFACE.SET_ENV(:IS_PMO); end;',params)
+    res.isPmo = env.outBinds['IS_PMO']
+    sessions.set(socket.sessionID, sessions.keys.IS_PMO, env.outBinds['IS_PMO'])
+    sessions.set(socket.sessionID, sessions.keys.FULL_NAME, res.userFullName)
     socket.emit('authorized', res)
     void getUserData(socket)
   } catch (e) {

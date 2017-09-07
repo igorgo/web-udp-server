@@ -1,3 +1,5 @@
+'use strict'
+
 const m =require('../messages')
 const db =require('../db')
 const routine =require('./routine')
@@ -8,7 +10,7 @@ const conditions = module.exports
 async function getClaimCondition(socket) {
   if (socket.sessionID) {
     try {
-      res = await db.execute(socket.sessionID, 'select N01 RN, S01 SNAME, S02 EDITABLE from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CONDITIONS_LIST)')
+      const res = await db.execute(socket.sessionID, 'select N01 RN, S01 SNAME, S02 EDITABLE from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CONDITIONS_LIST)')
       socket.emit('claim_conditions_list', res.rows)
     } catch (e) {
       log.error(e)

@@ -82,6 +82,13 @@ async function runServer() {
   await loadConfig()
   await log.init()
   addProcessHandlers()
+  await versionCheck()
+  process.isMaster = true
+  await log.open()
+  await db.open()
+  void require('./src/server').listen()
+/*
+
   if (cluster.isMaster) {
     // Fork workers.
     await versionCheck()
@@ -108,11 +115,12 @@ async function runServer() {
     await db.open()
     void require('./src/server').listen()
   }
+*/
 
 }
 
 async function shutdown(code) {
-  if (process.isMaster) return
+  // if (process.isMaster) return
   await log.server('Shutdown (SIGTERM/SIGINT) Initialised.')
   try {
     await db.close()

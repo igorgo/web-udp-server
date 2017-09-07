@@ -198,6 +198,9 @@ db.open = async () => {
   await pubLogon()
 }
 
+/**
+ * @return OraSqlParams
+ */
 db.createParams = () => new OraSqlParams()
 
 db.close = async () => {
