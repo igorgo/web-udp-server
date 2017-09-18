@@ -44,6 +44,7 @@ async function getClaimList (socket, data) {
             id: rec['N01'],
             claimType: rec['N02'], // 1 - feature, 2- rebuke, 3 - bug
             hasReleaseTo: rec['N03'],
+            hasBuildTo: rec['N07'],
             typicalStatus: rec['N04'],
             priority: rec['N05'],
             hasDocs: rec['N06']
