@@ -249,7 +249,7 @@ db.execute = async (aSessionId, aSql, aBindParams = [], aExecuteOptions = {}, aC
     return await lConnection.execute(aSql, aBindParams, aExecuteOptions)
   } catch (e) {
     log.error(e)
-    return e
+    throw e
   } finally {
     aConnection || await lConnection.close()
   }
