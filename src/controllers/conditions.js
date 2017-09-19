@@ -13,7 +13,6 @@ async function getClaimCondition(socket) {
       const res = await db.execute(socket.sessionID, 'select N01 RN, S01 SNAME, S02 EDITABLE from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CONDITIONS_LIST)')
       socket.emit('claim_conditions_list', res.rows)
     } catch (e) {
-      log.error(e)
       routine.emitExecutionError(e,socket)
     }
 

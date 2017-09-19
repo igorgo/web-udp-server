@@ -15,9 +15,10 @@ async function getClaimList (socket, data) {
     params.add('A_OFFSET').dirIn().typeNumber().val(_.get(data, 'page', 1) - 1)
     params.add('A_LIMIT').dirIn().typeNumber().val(_.get(data, 'limit', 25))
     params.add('A_NEW_RN').dirIn().typeNumber().val(_.get(data, 'newClaimId', null))
-    const conn = await db.getConnection(socket.sessionID)
     try {
-      const res = await db.execute(socket.sessionID, `
+      const conn = await db.getConnection(socket.sessionID)
+      try {
+        const res = await db.execute(socket.sessionID, `
       select * 
         from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CLAIMS(
           :A_COND,
@@ -26,49 +27,53 @@ async function getClaimList (socket, data) {
           :A_LIMIT,
           :A_NEW_RN
          ))`, params, {}, conn)
-      const response = {}
-      if (res.rows) {
-        response.claims = res.rows.map(rec => {
-          return {
-            numb: rec['S01'],
-            closedInBuild: rec['S02'],
-            regDate: rec['D01'],
-            unit: rec['S04'],
-            apps: rec['S05'],
-            status: rec['S06'],
-            author: rec['S07'],
-            description: rec['S08'],
-            executor: rec['S09'],
-            executorType: rec['N07'], // 1 - person, 2-department, 0-nobody
-            changeDate: rec['D02'],
-            id: rec['N01'],
-            claimType: rec['N02'], // 1 - feature, 2- rebuke, 3 - bug
-            hasReleaseTo: rec['N03'],
-            hasBuildTo: rec['N07'],
-            typicalStatus: rec['N04'],
-            priority: rec['N05'],
-            hasDocs: rec['N06']
-          }
-        })
-        const size = res.rows.length
-        if (size === 0)
-          response.allCnt = 0
-        else if (size === 1)
-          response.allCnt = res.rows[0]['N10']
-        else if (size > 1)
-          response.allCnt = res.rows[1]['N10']
-        response.page = _.get(data, 'page', 1)
-        response.limit = _.get(data, 'limit', 25)
+        const response = {}
+        if (res.rows) {
+          response.claims = res.rows.map(rec => {
+            return {
+              numb: rec['S01'],
+              closedInBuild: rec['S02'],
+              regDate: rec['D01'],
+              unit: rec['S04'],
+              apps: rec['S05'],
+              status: rec['S06'],
+              author: rec['S07'],
+              description: rec['S08'],
+              executor: rec['S09'],
+              executorType: rec['N07'], // 1 - person, 2-department, 0-nobody
+              changeDate: rec['D02'],
+              id: rec['N01'],
+              claimType: rec['N02'], // 1 - feature, 2- rebuke, 3 - bug
+              hasReleaseTo: rec['N03'],
+              hasBuildTo: rec['N07'],
+              typicalStatus: rec['N04'],
+              priority: rec['N05'],
+              hasDocs: rec['N06']
+            }
+          })
+          const size = res.rows.length
+          if (size === 0)
+            response.allCnt = 0
+          else if (size === 1)
+            response.allCnt = res.rows[0]['N10']
+          else if (size > 1)
+            response.allCnt = res.rows[1]['N10']
+          response.page = _.get(data, 'page', 1)
+          response.limit = _.get(data, 'limit', 25)
+        }
+        socket.emit('claim_list', response)
+        await routine.setUserData(socket.sessionID, conn, 'LAST_COND', conditionId, null, null)
+        await db.execute(socket.sessionID, 'begin UDO_PACKAGE_NODEWEB_IFACE.CLEAR_CONDS; end;', [], {}, conn)
       }
-      socket.emit('claim_list', response)
-      await routine.setUserData(socket.sessionID, conn, 'LAST_COND', conditionId, null, null)
-      await db.execute(socket.sessionID,'begin UDO_PACKAGE_NODEWEB_IFACE.CLEAR_CONDS; end;', [], {}, conn)
+      finally {
+        conn.close()
+      }
     } catch (e) {
       routine.emitExecutionError(e, socket)
-    } finally {
-      conn.close()
     }
-  } else socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+  }
+  else
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
 }
 
 claims.init = socket => {
