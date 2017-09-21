@@ -3,23 +3,8 @@
 const log = require('../logger')
 const db = require('../db')
 const sessions = require('../sessions')
-
+const userData = require('./userData')
 const auth = module.exports
-
-async function getUserData(socket) {
-  try {
-    const res = await db.execute(socket.sessionID, `
-select S02 as PARAM_NAME,
-       S01 as STR_VAL,
-       N01 as NUM_VAL,
-       D01 as DAT_VAL
-  from table(UDO_PACKAGE_NODEWEB_IFACE.GET_USERDATA)
-    `)
-    socket.emit('user_data_loaded', res.rows)
-  } catch (e) {
-    log.error(e)
-  }
-}
 
 async function login(socket, data) {
   try {
@@ -33,7 +18,7 @@ async function login(socket, data) {
     sessions.set(socket.sessionID, sessions.keys.IS_PMO, env.outBinds['IS_PMO'])
     sessions.set(socket.sessionID, sessions.keys.FULL_NAME, res.userFullName)
     socket.emit('authorized', res)
-    void getUserData(socket)
+    void userData.getAllUserData(socket)
   } catch (e) {
     log.error(e)
     socket.emit('auth_error', {message: log.oraErrorExtract(e.message)})

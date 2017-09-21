@@ -62,7 +62,6 @@ async function getClaimList (socket, data) {
           response.limit = _.get(data, 'limit', 25)
         }
         socket.emit('claim_list', response)
-        await routine.setUserData(socket.sessionID, conn, 'LAST_COND', conditionId, null, null)
         await db.execute(socket.sessionID, 'begin UDO_PACKAGE_NODEWEB_IFACE.CLEAR_CONDS; end;', [], {}, conn)
       }
       finally {
