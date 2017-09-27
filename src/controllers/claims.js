@@ -9,8 +9,7 @@ const claims = module.exports
 async function getClaimList (socket, data) {
   if (socket.sessionID) {
     const params = db.createParams()
-    const conditionId = _.get(data, 'conditionId', null)
-    params.add('A_COND').dirIn().typeNumber().val(conditionId)
+    params.add('A_COND').dirIn().typeNumber().val(_.get(data, 'conditionId', null))
     params.add('A_SORT').dirIn().typeString().val(_.get(data, 'sortOrder', null))
     params.add('A_OFFSET').dirIn().typeNumber().val(_.get(data, 'page', 1) - 1)
     params.add('A_LIMIT').dirIn().typeNumber().val(_.get(data, 'limit', 25))
