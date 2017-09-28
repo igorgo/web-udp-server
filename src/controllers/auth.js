@@ -4,6 +4,7 @@ const log = require('../logger')
 const db = require('../db')
 const sessions = require('../sessions')
 const userData = require('./userData')
+const sessionStatic = require('./sessionStaticDicts')
 const auth = module.exports
 
 async function login(socket, data) {
@@ -19,6 +20,7 @@ async function login(socket, data) {
     sessions.set(socket.sessionID, sessions.keys.FULL_NAME, res.userFullName)
     socket.emit('authorized', res)
     void userData.getAllUserData(socket)
+    void sessionStatic.getAllUnits(socket)
   } catch (e) {
     log.error(e)
     socket.emit('auth_error', {message: log.oraErrorExtract(e.message)})
