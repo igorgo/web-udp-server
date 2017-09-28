@@ -21,6 +21,7 @@ async function login(socket, data) {
     socket.emit('authorized', res)
     void userData.getAllUserData(socket)
     void sessionStatic.getAllUnits(socket)
+    void sessionStatic.getAllApps(socket)
   } catch (e) {
     log.error(e)
     socket.emit('auth_error', {message: log.oraErrorExtract(e.message)})
