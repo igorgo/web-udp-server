@@ -48,11 +48,10 @@ select S01 as VERSION,
         cv = item['VERSION']
         iv = _.findIndex(result, ['version', cv])
         if (iv === -1) {
-          result.push({
+          iv = result.push({
             version: cv,
             releases: []
-          })
-          iv = result.length - 1
+          }) - 1
           cr = ''
           ir = -1
         }
@@ -61,11 +60,10 @@ select S01 as VERSION,
         cr = item['RELEASE']
         ir = _.findIndex(result[iv].releases, ['release', cr])
         if (ir === -1) {
-          result[iv].releases.push({
+          ir = result[iv].releases.push({
             release: cr,
             builds: []
-          })
-          ir = result[iv].releases.length -1
+          }) - 1
         }
       }
       if (item['BUILD']) {
