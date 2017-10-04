@@ -60,7 +60,7 @@ class OraSqlParam {
    */
   typeString(maxSize) {
     this.type = oci.STRING
-    if (maxSize) { // noinspection JSUnusedGlobalSymbols
+    if (maxSize) {
       this.maxSize = maxSize
     }
     return this
@@ -75,7 +75,6 @@ class OraSqlParam {
     return this
   }
 
-  // noinspection JSUnusedGlobalSymbols
   /**
    * Set the parameter's  datatype to CLOB
    * @returns {OraSqlParam} clob Param
@@ -95,7 +94,6 @@ class OraSqlParam {
     return this
   }
 
-  // noinspection JSUnusedGlobalSymbols
   /**
    * Set the parameter's  value
    * @param {string} value The Param's Value
@@ -106,7 +104,6 @@ class OraSqlParam {
     return this
   }
 
-  // noinspection JSUnusedGlobalSymbols
   /**
    * Set the number parameter's  value
    * @param {string} value The Param's Value
@@ -117,7 +114,6 @@ class OraSqlParam {
     return this
   }
 
-  // noinspection JSUnusedGlobalSymbols
   /**
    * Set the date parameter's  value
    * @param {string} value The Param's Value
@@ -186,13 +182,9 @@ db.open = async () => {
   db.oldPkgSess = nconf.get('oracle:oldpkgsess')
   db.conectionString = nconf.get('oracle:host') + ':' + nconf.get('oracle:port') +
     '/' + nconf.get('oracle:database')
-  // noinspection JSUndefinedPropertyAssignment
   oci.outFormat = oci.OBJECT
-  // noinspection JSUndefinedPropertyAssignment
   oci.maxRows = 10000
-  // noinspection JSUndefinedPropertyAssignment
   oci.fetchAsString = [oci.CLOB]
-  // noinspection JSUndefinedPropertyAssignment
   oci.autoCommit = true
   pool = await oci.createPool({
     user: nconf.get('oracle:username'),
