@@ -1,10 +1,3 @@
-/*!
- * 
- * Copyright(c) 2017 igor-go <igorgo16@gmail.com>
- * MIT Licensed
- */
-
-const log = require('../logger')
 const db = require('../db')
 const routine = require('./routine')
 
@@ -29,6 +22,6 @@ select S01 as RELNAME,
 
 mod.init = socket => {
   socket.on('get_cur_releases', () => {
-    getReleases(socket)
+    void getReleases(socket)
   })
 }

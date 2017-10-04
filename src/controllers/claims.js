@@ -53,8 +53,9 @@ async function getClaimList (socket, {
          ))`, params, {}, conn)
         const response = {}
         let allCnt = 0
-        if (res.rows) {
-          response.claims = res.rows.map(rec => {
+        const rows = res.rows
+        if (rows) {
+          response.claims = rows.map(rec => {
             let record
             ({allCnt, ...record} = rec)
             return record

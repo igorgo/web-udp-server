@@ -130,7 +130,7 @@ log.init = () => {
     }
     const filePath = file.stream.path
     await log.flush(aFileType)
-    if (file.stream.destroyed || file.stream.closed) {
+    if (file.stream.closed) {
       resolve()
       return
     }
@@ -204,7 +204,7 @@ log.init = () => {
       msg = msg.substring(0, msg.length - 1)
       /**/
       if (aFileType === 'debug') {
-        msg = colorDebug(log.normalizeStack((new Error(msg)).stack)).split(';')
+        msg = colorDebug(log.normalizeStack((new Error(msg)).stack).split(';'))
         _.remove(msg, (v) => v.startsWith(' Object.afs.log.'))
         msg[0] = msg[0].slice(16)
         msg = msg.join('\n')

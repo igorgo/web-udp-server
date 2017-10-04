@@ -4,6 +4,9 @@
  * @type {Provider}
  */
 const nconf = require('nconf')
+/**
+ * @type {oracledb}
+ */
 const oci = require('oracledb')
 const _ = require('lodash')
 const common = require('./common')
@@ -57,7 +60,9 @@ class OraSqlParam {
    */
   typeString(maxSize) {
     this.type = oci.STRING
-    if (maxSize) this.maxSize = maxSize
+    if (maxSize) { // noinspection JSUnusedGlobalSymbols
+      this.maxSize = maxSize
+    }
     return this
   }
 
@@ -70,6 +75,7 @@ class OraSqlParam {
     return this
   }
 
+  // noinspection JSUnusedGlobalSymbols
   /**
    * Set the parameter's  datatype to CLOB
    * @returns {OraSqlParam} clob Param
@@ -89,6 +95,7 @@ class OraSqlParam {
     return this
   }
 
+  // noinspection JSUnusedGlobalSymbols
   /**
    * Set the parameter's  value
    * @param {string} value The Param's Value
@@ -99,6 +106,7 @@ class OraSqlParam {
     return this
   }
 
+  // noinspection JSUnusedGlobalSymbols
   /**
    * Set the number parameter's  value
    * @param {string} value The Param's Value
@@ -109,6 +117,7 @@ class OraSqlParam {
     return this
   }
 
+  // noinspection JSUnusedGlobalSymbols
   /**
    * Set the date parameter's  value
    * @param {string} value The Param's Value
@@ -145,15 +154,14 @@ const SESSION_TIMEOUT_MINUTES = 60
 
 const SESSION_IMPLEMENTATION = 'Client'
 
-let pool, sessionConfig, pubSessionID
+let pool, pubSessionID
 
 db.isOpened = false
 
-const pubKeepAlive = () => {
+const pubKeepAlive = async () => {
   if (!db.pubSessionActive) return
-  db.getConnectionPub().then((c) => {
-    c.close()
-  })
+  const c = db.getConnectionPub()
+  c.close()
 }
 
 const pubLogon = async () => {
@@ -178,9 +186,13 @@ db.open = async () => {
   db.oldPkgSess = nconf.get('oracle:oldpkgsess')
   db.conectionString = nconf.get('oracle:host') + ':' + nconf.get('oracle:port') +
     '/' + nconf.get('oracle:database')
+  // noinspection JSUndefinedPropertyAssignment
   oci.outFormat = oci.OBJECT
+  // noinspection JSUndefinedPropertyAssignment
   oci.maxRows = 10000
+  // noinspection JSUndefinedPropertyAssignment
   oci.fetchAsString = [oci.CLOB]
+  // noinspection JSUndefinedPropertyAssignment
   oci.autoCommit = true
   pool = await oci.createPool({
     user: nconf.get('oracle:username'),
@@ -223,6 +235,10 @@ db.getConnection = async (aSessionId) => {
   return lConnection
 }
 
+/**
+ * Creates connection, sets the session schema, and changes session context to bublic user utilizer
+ * @returns {Promise.<oracledb.Connection>} Connection object is obtained by a Pool
+ */
 db.getConnectionPub = async () => await db.getConnection(pubSessionID)
 
 /**
@@ -257,10 +273,7 @@ db.executePub = async (aSql, aBindParams = [], aExecuteOptions = {}, aConnection
  * Logon to AfinaSql by utilizer
  * @param {string} aAfinaUser Afina's user name
  * @param {string} aAfinaWebPassword Afina's user web password
- * @param {string} [aAfinaCompany] Code of the session company
- * @param {string} [aAfinaApplication] Code of the Afina App, e.g. Admin, Balance …
- * @param {string} [aAfinaInterfaceLanguage] The session language (UKRAINIAN or RUSSIAN)
- * @returns {Promise.<logon>} New user session information
+ * @returns {Promise.<Object>} New user session information
  * @property {number} nCompany Session company RN
  * @property {string} userFullName Session user full name
  * @property {string} appName Afina application name

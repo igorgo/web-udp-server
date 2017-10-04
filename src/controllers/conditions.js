@@ -3,7 +3,6 @@
 const m = require('../messages')
 const db = require('../db')
 const routine = require('./routine')
-const log = require('../logger')
 const _ = require('lodash')
 
 const conditions = module.exports

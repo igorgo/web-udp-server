@@ -38,12 +38,13 @@ select S01 as VERSION,
        D01 as BUILDDATE
   from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_BUILDS)
     `)
+    const rows = res.rows
     let result = [],
       iv = -1,
       ir = -1,
       cv = '',
       cr = ''
-    res.rows.forEach((item) => {
+    rows.forEach( item => {
       if (item['VERSION'] !== cv) {
         cv = item['VERSION']
         iv = _.findIndex(result, ['version', cv])

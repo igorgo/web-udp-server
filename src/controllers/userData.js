@@ -37,20 +37,20 @@ end;
 }
 
 
-async function setUserDataParam(socket, data) {
+async function setUserDataParam(socket, {param, dataType, value}) {
     if (socket.sessionID) {
       let nVal = null, sVal = null, dVal = null
-      switch (data.dataType) {
+      switch (dataType) {
         case 'N':
-          nVal = data.value
+          nVal = value
           break
         case 'S':
-          sVal = data.value
+          sVal = value
           break
         case 'D':
-          dVal = data.value
+          dVal = value
       }
-      void setUserData(socket, data.param, nVal, sVal, dVal)
+      void setUserData(socket, param, nVal, sVal, dVal)
     }
 }
 
