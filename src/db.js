@@ -154,10 +154,11 @@ let pool, pubSessionID
 
 db.isOpened = false
 
-const pubKeepAlive = async () => {
+const pubKeepAlive = () => {
   if (!db.pubSessionActive) return
-  const c = db.getConnectionPub()
-  c.close()
+  db.getConnectionPub().then((c) => {
+    c.close()
+  })
 }
 
 const pubLogon = async () => {
