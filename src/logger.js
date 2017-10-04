@@ -1,14 +1,3 @@
-/*!
- * 
- * Copyright(c) 2017 igor-go <igorgo16@gmail.com>
- * MIT Licensed
- */
-
-/*!
- *
- * © Copyright 2016-2017 Igor Gorodetskyy <igorgo16@gmail.com>
- */
-
 'use strict'
 
 const nconf = require('nconf')
@@ -17,7 +6,6 @@ const concolor = require('concolor')
 const path = require('path')
 const _ = require('lodash')
 const mkdirp = require('mkdirp')
-//const timers = require('timers')
 const fs = require('fs')
 const c = require('./constants')
 
@@ -28,6 +16,15 @@ const colorError = concolor('b,red')
 const colorDebug = concolor('b,green')
 const colorWarn = concolor('b,yellow')
 
+/**
+ * @property {function} server
+ * @property {function} error
+ * @property {function} debug
+ * @property {function} warning
+ * @property {function} access
+ * @property {function} auth
+ * @property {function} slow
+ */
 const log = module.exports
 
 log.stringifyObject = (aObject) => {
@@ -65,6 +62,9 @@ log.init = () => {
   const makeTimer = fileType => (() => log.flush(fileType))
 
   log.open = async () => {
+    /**
+     * @type String
+     */
     log.writeInterval = nconf.get('log:write')
     log.bufferSize = nconf.get('log:buffer') * 1024
     log.keepDays = nconf.get('log:keep')
@@ -101,6 +101,12 @@ log.init = () => {
       makeTimer(aFileType),
       common.duration(log.writeInterval)
     )
+    /**
+     * @property {WriteStream} stream
+     * @property {String} buf
+     * @property {Boolean} lock
+     * @property timer
+     */
     const file = { stream, buf: '', lock: false, timer }
     log.files.set(aFileType, file)
     if (aOnOpen) file.stream.on('open', aOnOpen)

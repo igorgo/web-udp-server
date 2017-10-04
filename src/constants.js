@@ -1,8 +1,4 @@
-/*!
- * 
- * Copyright(c) 2017 igor-go <igorgo16@gmail.com>
- * MIT Licensed
- */
+'use strict'
 
 const c = module.exports
 const escapeRegExp = s => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')

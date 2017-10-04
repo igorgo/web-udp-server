@@ -1,8 +1,3 @@
-/*!
- * 
- * Copyright(c) 2017 igor-go <igorgo16@gmail.com>
- * MIT Licensed
- */
 'use strict'
 
 const http = require('http')
@@ -19,7 +14,7 @@ const io = require('socket.io').listen(server)
 io.on('connection', socket => {
   socket.auth = false
   controllers.initAll(socket)
-  socket.on('disconnect', async (reason) => {
+  socket.on('disconnect', async () => {
     log.access('Disconnecting socket ' + socket.id)
   })
 })

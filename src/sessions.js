@@ -7,7 +7,7 @@ sessions.set = (id ,key, value) => {
 }
 
 sessions.get = (id ,key, defaultValue) => {
-  _.get(session, [id, key] , defaultValue)
+  _.get(sessions, [id, key] , defaultValue)
 }
 
 sessions.start = (id) => {

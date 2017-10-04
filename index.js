@@ -1,18 +1,16 @@
-/*!
- * 
- * Copyright(c) 2017 igor-go <igorgo16@gmail.com>
- * MIT Licensed
- */
+'use strict'
 
-const cluster = require('cluster')
-const numCPUs = require('os').cpus().length
+// const cluster = require('cluster')
+// const numCPUs = require('os').cpus().length
 const path = require('path')
 const fs = require('fs')
 const pkg = require('./package.json')
 const log = require('./src/logger')
 const db = require('./src/db')
 /**
- * @type Provider
+ * @property {function} argv
+ * @property {function} defaults
+ * @property {function} set
  */
 const nconf = require('nconf')
 

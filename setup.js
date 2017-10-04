@@ -10,6 +10,10 @@
 const util = require('util')
 const path = require('path')
 const fs = require('fs')
+/**
+ * @property {function} file
+ * @property {function} get
+ */
 const nconf = require('nconf')
 const prompt = require('prompt')
 const promptGet = util.promisify(prompt.get)
