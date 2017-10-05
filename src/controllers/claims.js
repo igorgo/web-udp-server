@@ -110,6 +110,31 @@ async function getClaimRecord (socket, {id}) {
   try {
     const res = await db.execute(socket.sessionID, sql, params)
     socket.emit('claim_record_got', res.rows.length ? res.rows[0] : {id: null})
+    void getClaimHistory (socket, { id })
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
+async function getClaimHistory (socket, { id }) {
+  if (!socket.sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    select D01 as "date",
+           S03 as "who",
+           S04 as "newStatus",
+           S05 as "newExecutor",
+           S06 as "comment"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.CLAIM_HISTORY(:RN))  
+  `
+  const params = db.createParams()
+  params.add('RN').dirIn().typeNumber().val(id)
+  try {
+    const res = await db.execute(socket.sessionID, sql, params)
+    socket.emit('claim_history_got', {history: res.rows})
   }
   catch (e) {
     routine.emitExecutionError(e, socket)
@@ -122,5 +147,8 @@ claims.init = socket => {
   })
   socket.on('get_claim_record', (pl) => {
     void getClaimRecord(socket, pl)
+  })
+  socket.on('get_claim_history', (pl) => {
+    void getClaimHistory(socket, pl)
   })
 }
