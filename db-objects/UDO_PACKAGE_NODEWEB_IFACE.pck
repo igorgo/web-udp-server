@@ -145,7 +145,7 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
          S11 as "app",
          S12 as "action",
          S13 as "content",
-				 N01 as "rn",
+         N01 as "rn",
          N02 as "priority",
          N03 as "helpSign",
          D01 as "registeredAt",
@@ -156,10 +156,24 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
   function GET_CLAIM_RECORD(A_RN in number) return T_MOB_REP
     pipelined;
 
-  function CLAIM_HISTORY
-  (
-    P_RN      in number
-  ) return T_MOB_REP
+  /*
+	select D01 as "date",
+           S03 as "who",
+           S04 as "newStatus",
+           S05 as "newExecutor",
+           S06 as "comment"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.CLAIM_HISTORY(:RN))
+	*/
+  function CLAIM_HISTORY(P_RN in number) return T_MOB_REP
+    pipelined;
+
+  /*
+	  select S01 as "path",
+           N01 as "id",
+           N02 as "sizeBite"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.CLAIM_HISTORY(:RN))
+	*/
+  function GET_CLAIM_DOCUMS(P_PRN in number) return T_MOB_REP
     pipelined;
 
 end UDO_PACKAGE_NODEWEB_IFACE;
@@ -457,12 +471,12 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     begin
       LL_REC     := G_EMPTY_REC;
       LL_REC.N01 := A_CLAIM.RN;
-			--     N02  see below
-			--     N03  see below
+      --     N02  see below
+      --     N03  see below
       LL_REC.N04 := A_CLAIM.STATUDPTYPE;
       LL_REC.N05 := A_CLAIM.PRIORITY;
       LL_REC.N06 := A_CLAIM.NEXISTDOC;
-			--     N07    see below
+      --     N07    see below
       LL_REC.N10 := A_CLAIM.ALL_CNT;
       LL_REC.S01 := trim(A_CLAIM.EVENT_NUMB);
       LL_REC.S02 := A_CLAIM.REL_BLD_REL;
@@ -471,11 +485,11 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       LL_REC.S06 := A_CLAIM.EVNSTAT_CODE;
       LL_REC.S07 := A_CLAIM.INITIATOR;
       LL_REC.S08 := A_CLAIM.EVENT_DESCR;
-			--     S09  see below
+      --     S09  see below
       LL_REC.D01 := A_CLAIM.REG_DATE;
       LL_REC.D02 := A_CLAIM.CHANGE_DATE;
-			
-			-- S09 & N08
+    
+      -- S09 & N08
       if A_CLAIM.EXECUTOR_DEP is null then
         if A_CLAIM.EXECUTOR != 'Архив' then
           LL_REC.S09 := A_CLAIM.EXECUTOR;
@@ -489,7 +503,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
         LL_REC.N08 := 2;
       end if;
       -- N02
-			case A_CLAIM.EVENT_TYPE
+      case A_CLAIM.EVENT_TYPE
         when EVENT_TYPE_ADDON then
           LL_REC.N02 := 1;
         when EVENT_TYPE_REBUKE then
@@ -498,13 +512,13 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
           LL_REC.N02 := 3;
       end case;
       -- N03
-			if A_CLAIM.RELEASE_TO is null then
+      if A_CLAIM.RELEASE_TO is null then
         LL_REC.N03 := 0;
       else
         LL_REC.N03 := 1;
       end if;
       -- N07
-			if A_CLAIM.BLD_TO_RN is null then
+      if A_CLAIM.BLD_TO_RN is null then
         LL_REC.N07 := 0;
       else
         LL_REC.N07 := 1;
@@ -729,10 +743,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     UDO_PKG_COND_STORE.DEL(P_FILTER_RN);
   end;
 
-  function CLAIM_HISTORY
-  (
-    P_RN      in number
-  ) return T_MOB_REP
+  function CLAIM_HISTORY(P_RN in number) return T_MOB_REP
     pipelined is
     FLAG_COMMENT_OTHER  constant varchar2(1) := 'O';
     FLAG_NOCOMMENT      constant varchar2(1) := 'N';
@@ -819,7 +830,8 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
           L_TRIGGER := true;
           if I > 1 then
             if ((L_HISTTAB(I - 1)
-               .CFLAG = FLAG_NOCOMMENT or L_HISTTAB(I - 1).CFLAG = FLAG_IGNORE) and
+               .CFLAG = FLAG_NOCOMMENT or L_HISTTAB(I - 1).CFLAG =
+                FLAG_IGNORE) and
                (L_HISTTAB(I - 1).SAUTHNAME = L_HISTTAB(I).SAUTHNAME) and
                ((L_HISTTAB(I).DCHANGE_DATE - L_HISTTAB(I - 1).DCHANGE_DATE) <
                MAX_SHIFT_BETWEEN_NOTE)) then
@@ -834,7 +846,8 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
           end if;
           if (I < L_HISTTAB.COUNT) and L_TRIGGER then
             if ((L_HISTTAB(I + 1)
-               .CFLAG = FLAG_NOCOMMENT or L_HISTTAB(I + 1).CFLAG = FLAG_IGNORE) and
+               .CFLAG = FLAG_NOCOMMENT or L_HISTTAB(I + 1).CFLAG =
+                FLAG_IGNORE) and
                (L_HISTTAB(I + 1).SAUTHNAME = L_HISTTAB(I).SAUTHNAME) and
                ((L_HISTTAB(I + 1).DCHANGE_DATE - L_HISTTAB(I).DCHANGE_DATE) <
                MAX_SHIFT_BETWEEN_NOTE)) then
@@ -859,7 +872,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       end case;
     end loop;
     for I in 1 .. L_HISTTAB.COUNT loop
-      if L_HISTTAB(I).CFLAG != FLAG_IGNORE and L_HISTTAB(I).NACTION_CODE not in (6,7) then
+      if L_HISTTAB(I).CFLAG != FLAG_IGNORE and L_HISTTAB(I)
+         .NACTION_CODE not in (6,
+                               7) then
         /* S01-Flag
            S02-Date
            S03-Who
@@ -873,10 +888,13 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
         L_REC.D01 := L_HISTTAB(I).DCHANGE_DATE;
         L_REC.S03 := L_HISTTAB(I).SAUTHNAME;
         L_REC.N01 := L_HISTTAB(I).NACTION_CODE;
-        if L_HISTTAB(I).NACTION_CODE in (ACT_FWD_N, ACT_RET_N) then
+        if L_HISTTAB(I).NACTION_CODE in (ACT_FWD_N,
+                             ACT_RET_N) then
           L_REC.S04 := L_HISTTAB(I).SEVENT_TYPE_NAME;
         end if;
-        if L_HISTTAB(I).NACTION_CODE in (ACT_FWD_N, ACT_RET_N, ACT_SEND_N) then
+        if L_HISTTAB(I).NACTION_CODE in (ACT_FWD_N,
+                             ACT_RET_N,
+                             ACT_SEND_N) then
           L_REC.S05 := L_HISTTAB(I).SSEND;
         end if;
         L_REC.S06 := L_HISTTAB(I).STEXT;
@@ -885,6 +903,32 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     end loop;
   end;
 
+  function GET_CLAIM_DOCUMS(P_PRN in number) return T_MOB_REP
+    pipelined is
+    cursor LC_DOCS is
+      select NRN,
+             SFILE_PATH,
+             NVL(NSIZE,
+                 0) NSIZE
+        from UDO_V_CLAIMS_FILELINKS M
+       where NPRN = P_PRN
+       order by SCODE;
+    L_DOC LC_DOCS%rowtype;
+    L_REC T_MOB_REP_REC;
+  begin
+    open LC_DOCS;
+    loop
+      fetch LC_DOCS
+        into L_DOC;
+      exit when LC_DOCS%notfound;
+      L_REC     := G_EMPTY_REC;
+      L_REC.S01 := L_DOC.SFILE_PATH;
+      L_REC.N01 := L_DOC.NRN;
+      L_REC.N02 := L_DOC.NSIZE;
+      pipe row(L_REC);
+    end loop;
+    close LC_DOCS;
+  end;
 
 begin
   -- Initialization

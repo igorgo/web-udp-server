@@ -111,6 +111,7 @@ async function getClaimRecord (socket, {id}) {
     const res = await db.execute(socket.sessionID, sql, params)
     socket.emit('claim_record_got', res.rows.length ? res.rows[0] : {id: null})
     void getClaimHistory (socket, { id })
+    void getClaimFiles (socket, { id })
   }
   catch (e) {
     routine.emitExecutionError(e, socket)
@@ -141,6 +142,28 @@ async function getClaimHistory (socket, { id }) {
   }
 }
 
+async function getClaimFiles (socket, { id }) {
+  if (!socket.sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    select S01 as "path",
+           N01 as "id",
+           N02 as "sizeBite"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CLAIM_FILES(:RN))  
+  `
+  const params = db.createParams()
+  params.add('RN').dirIn().typeNumber().val(id)
+  try {
+    const res = await db.execute(socket.sessionID, sql, params)
+    socket.emit('claim_files_got', {files: res.rows})
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
 claims.init = socket => {
   socket.on('get_claim_list', (data) => {
     void getClaimList(socket, data)
@@ -150,5 +173,8 @@ claims.init = socket => {
   })
   socket.on('get_claim_history', (pl) => {
     void getClaimHistory(socket, pl)
+  })
+  socket.on('get_claim_files', (pl) => {
+    void getClaimFiles(socket, pl)
   })
 }
