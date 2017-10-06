@@ -85,6 +85,27 @@ class OraSqlParam {
   }
 
   /**
+   * Set the parameter's  datatype to BLOB
+   * @returns {OraSqlParam} blob Param
+   */
+  typeBlob() {
+    this.type = oci.BLOB
+    return this
+  }
+
+  /**
+   * Set the parameter's  datatype to BUFFER
+   * @returns {OraSqlParam} buffer Param
+   */
+  typeBuffer(maxSize) {
+    this.type = oci.BUFFER
+    if (maxSize) {
+      this.maxSize = maxSize
+    }
+    return this
+  }
+
+  /**
    * Set the parameter's  value
    * @param {*} value The Param's Value
    * @returns {OraSqlParam} Param with value

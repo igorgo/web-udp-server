@@ -40,11 +40,11 @@ async function logoff(socket) {
   }
 }
 
-async function validate(socket, data) {
+async function validate(socket, { sessionID }) {
   try {
-    const conn = await db.getConnection(data.sessionID)
+    const conn = await db.getConnection(sessionID)
     conn.close()
-    socket.sessionID = data.sessionID
+    socket.sessionID = sessionID
     socket.emit('session_validated')
   } catch (e) {
     socket.emit('session_not_valid')

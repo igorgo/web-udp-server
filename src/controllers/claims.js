@@ -174,7 +174,4 @@ claims.init = socket => {
   socket.on('get_claim_history', (pl) => {
     void getClaimHistory(socket, pl)
   })
-  socket.on('get_claim_files', (pl) => {
-    void getClaimFiles(socket, pl)
-  })
 }

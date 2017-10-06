@@ -157,24 +157,33 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     pipelined;
 
   /*
-	select D01 as "date",
+  select D01 as "date",
            S03 as "who",
            S04 as "newStatus",
            S05 as "newExecutor",
            S06 as "comment"
       from table(UDO_PACKAGE_NODEWEB_IFACE.CLAIM_HISTORY(:RN))
-	*/
+  */
   function CLAIM_HISTORY(P_RN in number) return T_MOB_REP
     pipelined;
 
   /*
-	  select S01 as "path",
+    select S01 as "path",
            N01 as "id",
            N02 as "sizeBite"
-      from table(UDO_PACKAGE_NODEWEB_IFACE.CLAIM_HISTORY(:RN))
-	*/
-  function GET_CLAIM_DOCUMS(P_PRN in number) return T_MOB_REP
+      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CLAIM_FILES(:RN))
+  */
+  function GET_CLAIM_FILES(P_PRN in number) return T_MOB_REP
     pipelined;
+
+  procedure GET_LINKED_DOC
+  (
+    P_RN       in number,
+    P_FILESIZE out number,
+    P_FILENAME out string,
+		P_MIMETYPE out string,
+    P_DOCDATA  out blob
+  );
 
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
@@ -903,7 +912,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     end loop;
   end;
 
-  function GET_CLAIM_DOCUMS(P_PRN in number) return T_MOB_REP
+  function GET_CLAIM_FILES(P_PRN in number) return T_MOB_REP
     pipelined is
     cursor LC_DOCS is
       select NRN,
@@ -928,6 +937,63 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       pipe row(L_REC);
     end loop;
     close LC_DOCS;
+  end;
+
+  procedure GET_LINKED_DOC
+  (
+    P_RN       in number,
+    P_FILESIZE out number,
+    P_FILENAME out string,
+		P_MIMETYPE out string,
+    P_DOCDATA  out blob
+  ) is
+  
+    cursor LC_DOC is
+      select FILE_PATH,
+             BDATA,
+             CDATA
+        from FILELINKS M
+       where RN = P_RN;
+    L_DOC LC_DOC%rowtype;
+  
+    function C2B(C clob) return blob is
+      LL_BLB          blob;
+      LL_DEST_OFFSET  integer;
+      LL_SRC_OFFSET   integer;
+      LL_LANG_CONTEXT integer;
+      LL_WARNING      varchar2(2000);
+    begin
+      DBMS_LOB.CREATETEMPORARY(LL_BLB,
+                               false);
+      LL_DEST_OFFSET  := 1;
+      LL_SRC_OFFSET   := 1;
+      LL_LANG_CONTEXT := 0;
+      DBMS_LOB.CONVERTTOBLOB(LL_BLB,
+                             C,
+                             DBMS_LOB.GETLENGTH(C),
+                             LL_DEST_OFFSET,
+                             LL_SRC_OFFSET,
+                             0,
+                             LL_LANG_CONTEXT,
+                             LL_WARNING);
+      return LL_BLB;
+    end;
+  
+  begin
+    open LC_DOC;
+    fetch LC_DOC
+      into L_DOC;
+    close LC_DOC;
+    if DBMS_LOB.GETLENGTH(L_DOC.BDATA) > 0 then
+      P_DOCDATA := L_DOC.BDATA;
+    elsif DBMS_LOB.GETLENGTH(L_DOC.CDATA) > 0 then
+      P_DOCDATA := C2B(L_DOC.CDATA);
+    else
+      P_DOCDATA := null;
+    end if;
+		P_MIMETYPE := UDO_GET_FILE_CONTENTTYPE(L_DOC.FILE_PATH);
+    P_FILESIZE := DBMS_LOB.GETLENGTH(P_DOCDATA);
+    P_FILENAME := L_DOC.FILE_PATH;
   end;
 
 begin
