@@ -100,6 +100,8 @@ async function getClaimRecord (socket, {id}) {
   		   N01 as "id",
            N02 as "priority",
            N03 as "helpSign",
+           N04 as "claimTypeId",
+           N05 as "exexGroupSign",
            D01 as "registeredAt",
            D02 as "changedAt",
            D03 as "execTill"

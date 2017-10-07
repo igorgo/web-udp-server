@@ -148,6 +148,8 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
          N01 as "rn",
          N02 as "priority",
          N03 as "helpSign",
+         N04 as "claimTypeId",
+         N05 as "exexGroupSign",
          D01 as "registeredAt",
          D02 as "changedAt",
          D03 as "execTill"
@@ -181,7 +183,7 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_RN       in number,
     P_FILESIZE out number,
     P_FILENAME out string,
-		P_MIMETYPE out string,
+    P_MIMETYPE out string,
     P_DOCDATA  out blob
   );
 
@@ -444,6 +446,8 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     L_REC.N01 := L_CLAIM.NRN;
     L_REC.N02 := L_CLAIM.NPRIORITY;
     L_REC.N03 := L_CLAIM.NHELPSIGN;
+    L_REC.N04 := L_CLAIM.NEVENT_TYPE;
+    L_REC.N05 := L_CLAIM.NGROUP_SIGN;
     L_REC.D01 := L_CLAIM.DREG_DATE;
     L_REC.D02 := L_CLAIM.DCHANGE_DATE;
     L_REC.D03 := L_CLAIM.DEXPIRE_DATE;
@@ -944,7 +948,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     P_RN       in number,
     P_FILESIZE out number,
     P_FILENAME out string,
-		P_MIMETYPE out string,
+    P_MIMETYPE out string,
     P_DOCDATA  out blob
   ) is
   
@@ -991,7 +995,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     else
       P_DOCDATA := null;
     end if;
-		P_MIMETYPE := UDO_GET_FILE_CONTENTTYPE(L_DOC.FILE_PATH);
+    P_MIMETYPE := UDO_GET_FILE_CONTENTTYPE(L_DOC.FILE_PATH);
     P_FILESIZE := DBMS_LOB.GETLENGTH(P_DOCDATA);
     P_FILENAME := L_DOC.FILE_PATH;
   end;
