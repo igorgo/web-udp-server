@@ -6,8 +6,8 @@ const routine = require('./routine')
 
 const linkFiles = module.exports
 
-async function getClaimFiles (socket, { id }) {
-  if (!socket.sessionID) {
+async function getClaimFiles (socket, {sessionID, id }) {
+  if (!sessionID) {
     socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
     return
   }
@@ -20,7 +20,7 @@ async function getClaimFiles (socket, { id }) {
   const params = db.createParams()
   params.add('RN').dirIn().typeNumber().val(id)
   try {
-    const res = await db.execute(socket.sessionID, sql, params)
+    const res = await db.execute(sessionID, sql, params)
     socket.emit('claim_files_got', {files: res.rows})
   }
   catch (e) {
@@ -28,8 +28,8 @@ async function getClaimFiles (socket, { id }) {
   }
 }
 
-async function getLinkedFile (socket, { id }) {
-  if (!socket.sessionID) {
+async function getLinkedFile (socket, { sessionID, id }) {
+  if (!sessionID) {
     socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
     return
   }
@@ -51,8 +51,8 @@ async function getLinkedFile (socket, { id }) {
   params.add('MIMETYPE').dirOut().typeString(1000)
   params.add('DOCDATA').dirOut().typeBlob()
   try {
-    const conn = await db.getConnection(socket.sessionID)
-    const res = await db.execute(socket.sessionID, sql, params, {}, conn)
+    const conn = await db.getConnection(sessionID)
+    const res = await db.execute(sessionID, sql, params, {}, conn)
     const file = res.outBinds['DOCDATA']
     if (file === null) {
       conn.close()
@@ -88,3 +88,4 @@ linkFiles.init = socket => {
   })
 
 }
+linkFiles.getClaimFiles = getClaimFiles

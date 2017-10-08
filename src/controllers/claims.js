@@ -4,17 +4,19 @@ const m = require('../messages')
 const db = require('../db')
 const routine = require('./routine')
 // const log = require('../logger')
+const {getClaimFiles} = require('./linkFiles')
 
 const claims = module.exports
 
 async function getClaimList (socket, {
+  sessionID,
   conditionId = null,
   sortOrder = null,
   page = 1,
   limit = 25,
   newClaimId = null
 }) {
-  if (socket.sessionID) {
+  if (sessionID) {
     const params = db.createParams()
     params.add('A_COND').dirIn().typeNumber().val(conditionId)
     params.add('A_SORT').dirIn().typeString().val(sortOrder)
@@ -22,9 +24,9 @@ async function getClaimList (socket, {
     params.add('A_LIMIT').dirIn().typeNumber().val(limit)
     params.add('A_NEW_RN').dirIn().typeNumber().val(newClaimId)
     try {
-      const conn = await db.getConnection(socket.sessionID)
+      const conn = await db.getConnection(sessionID)
       try {
-        const res = await db.execute(socket.sessionID, `
+        const res = await db.execute(sessionID, `
       select N01 as "id",
              N02 as "claimType",
              N03 as "hasReleaseTo",
@@ -65,7 +67,7 @@ async function getClaimList (socket, {
           response.limit = limit
         }
         socket.emit('claim_list', response)
-        await db.execute(socket.sessionID, 'begin UDO_PACKAGE_NODEWEB_IFACE.CLEAR_CONDS; end;', [], {}, conn)
+        await db.execute(sessionID, 'begin UDO_PACKAGE_NODEWEB_IFACE.CLEAR_CONDS; end;', [], {}, conn)
       }
       finally {
         conn.close()
@@ -78,8 +80,8 @@ async function getClaimList (socket, {
     socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
 }
 
-async function getClaimRecord (socket, {id}) {
-  if (!socket.sessionID) {
+async function getClaimRecord (socket, {sessionID, id}) {
+  if (!sessionID) {
     socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
     return
   }
@@ -110,18 +112,18 @@ async function getClaimRecord (socket, {id}) {
   const params = db.createParams()
   params.add('RN').dirIn().typeNumber().val(id)
   try {
-    const res = await db.execute(socket.sessionID, sql, params)
+    const res = await db.execute(sessionID, sql, params)
     socket.emit('claim_record_got', res.rows.length ? res.rows[0] : {id: null})
-    void getClaimHistory (socket, { id })
-    void getClaimFiles (socket, { id })
+    void getClaimHistory (socket, { sessionID, id })
+    void getClaimFiles (socket, { sessionID, id })
   }
   catch (e) {
     routine.emitExecutionError(e, socket)
   }
 }
 
-async function getClaimHistory (socket, { id }) {
-  if (!socket.sessionID) {
+async function getClaimHistory (socket, { sessionID, id }) {
+  if (!sessionID) {
     socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
     return
   }
@@ -136,30 +138,8 @@ async function getClaimHistory (socket, { id }) {
   const params = db.createParams()
   params.add('RN').dirIn().typeNumber().val(id)
   try {
-    const res = await db.execute(socket.sessionID, sql, params)
+    const res = await db.execute(sessionID, sql, params)
     socket.emit('claim_history_got', {history: res.rows})
-  }
-  catch (e) {
-    routine.emitExecutionError(e, socket)
-  }
-}
-
-async function getClaimFiles (socket, { id }) {
-  if (!socket.sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
-  const sql = `
-    select S01 as "path",
-           N01 as "id",
-           N02 as "sizeBite"
-      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CLAIM_FILES(:RN))  
-  `
-  const params = db.createParams()
-  params.add('RN').dirIn().typeNumber().val(id)
-  try {
-    const res = await db.execute(socket.sessionID, sql, params)
-    socket.emit('claim_files_got', {files: res.rows})
   }
   catch (e) {
     routine.emitExecutionError(e, socket)

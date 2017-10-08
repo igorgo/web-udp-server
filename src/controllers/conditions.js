@@ -7,10 +7,10 @@ const _ = require('lodash')
 
 const conditions = module.exports
 
-async function getClaimConditions (socket) {
-  if (socket.sessionID) {
+async function getClaimConditions (socket, {sessionID}) {
+  if (sessionID) {
     try {
-      const res = await db.execute(socket.sessionID, 'select N01 RN, S01 SNAME, S02 EDITABLE from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CONDITIONS_LIST)')
+      const res = await db.execute(sessionID, 'select N01 RN, S01 SNAME, S02 EDITABLE from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CONDITIONS_LIST)')
       socket.emit('claim_conditions_list', res.rows)
     } catch (e) {
       routine.emitExecutionError(e, socket)
@@ -19,8 +19,8 @@ async function getClaimConditions (socket) {
   } else socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
 }
 
-async function getClaimCondition (socket, pl) {
-  if (socket.sessionID) {
+async function getClaimCondition (socket, {sessionID, conditionId}) {
+  if (sessionID) {
     const sql = `
       begin
         UDO_PACKAGE_NODEWEB_IFACE.GET_CONDITION(
@@ -39,7 +39,7 @@ async function getClaimCondition (socket, pl) {
       end;
    `
     const params = db.createParams()
-    params.add('P_RN').dirInOut().typeNumber().val(_.get(pl, 'conditionId', null))
+    params.add('P_RN').dirInOut().typeNumber().val(conditionId)
     params.add('P_FILTER_NAME').dirOut().typeString(1000)
     params.add('P_CLAIM_NUMB').dirOut().typeString(1000)
     params.add('P_CLAIM_VERS').dirOut().typeString(1000)
@@ -51,7 +51,7 @@ async function getClaimCondition (socket, pl) {
     params.add('P_CLAIM_IM_PERF').dirOut().typeNumber()
     params.add('P_CLAIM_CONTENT').dirOut().typeString(1000)
     try {
-      const res = await db.execute(socket.sessionID, sql, params)
+      const res = await db.execute(sessionID, sql, params)
       socket.emit('claim_condition_got', res.outBinds)
     } catch (e) {
       routine.emitExecutionError(e, socket)
@@ -70,9 +70,10 @@ async function saveClaimCondition (socket, {
   claimApp,
   imInitiator,
   imExecutor,
-  claimContent
+  claimContent,
+  sessionID
 }) {
-  if (!socket.sessionID) {
+  if (!sessionID) {
     socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
     return
   }
@@ -106,15 +107,15 @@ async function saveClaimCondition (socket, {
   params.add('P_CLAIM_CONTENT').dirIn().typeString().val(claimContent)
   params.add('P_OUT_RN').dirOut().typeNumber()
   try {
-    const res = await db.execute(socket.sessionID, sql, params)
+    const res = await db.execute(sessionID, sql, params)
     socket.emit('claim_condition_saved', res.outBinds)
   } catch (e) {
     routine.emitExecutionError(e, socket)
   }
 }
 
-async function deleteClaimCondition (socket, { rn }) {
-  if (!socket.sessionID) {
+async function deleteClaimCondition (socket, { sessionID, rn }) {
+  if (!sessionID) {
     socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
     return
   }
@@ -126,7 +127,7 @@ async function deleteClaimCondition (socket, { rn }) {
   const params = db.createParams()
   params.add('P_FILTER_RN').dirIn().typeNumber().val(rn)
   try {
-    await db.execute(socket.sessionID, sql, params)
+    await db.execute(sessionID, sql, params)
     socket.emit('claim_condition_deleted')
   } catch (e) {
     routine.emitExecutionError(e, socket)
@@ -134,8 +135,8 @@ async function deleteClaimCondition (socket, { rn }) {
 }
 
 conditions.init = socket => {
-  socket.on('get_claim_conditions_list', () => {
-    void getClaimConditions(socket)
+  socket.on('get_claim_conditions_list', (pl) => {
+    void getClaimConditions(socket, pl)
   })
   socket.on('get_claim_condition', (pl) => {
     void getClaimCondition(socket, pl)

@@ -5,9 +5,9 @@ const log = require('../logger')
 const db = require('../db')
 const _ = require('lodash')
 
-staticDicts.getAllUnits = async socket => {
+staticDicts.getAllUnits = async (socket, sessionID) => {
   try {
-    const res = await db.execute(socket.sessionID, `
+    const res = await db.execute(sessionID, `
 select S01 as UNITNAME
   from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_UNITS)
     `)
@@ -17,9 +17,9 @@ select S01 as UNITNAME
   }
 }
 
-staticDicts.getAllApps = async socket => {
+staticDicts.getAllApps = async (socket, sessionID) => {
   try {
-    const res = await db.execute(socket.sessionID, `
+    const res = await db.execute(sessionID, `
 select S01 as APPNAME
   from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_APPS)
     `)
@@ -29,9 +29,9 @@ select S01 as APPNAME
   }
 }
 
-staticDicts.getAllBuilds = async socket => {
+staticDicts.getAllBuilds = async (socket, sessionID) => {
   try {
-    const res = await db.execute(socket.sessionID, `
+    const res = await db.execute(sessionID, `
 select S01 as VERSION,
        S02 as RELEASE,
        S03 as BUILD,

@@ -163,7 +163,6 @@ class OraSqlParams {
   }
 }
 
-
 const db = module.exports
 
 // Constants
@@ -173,12 +172,20 @@ const SESSION_IMPLEMENTATION = 'Client'
 
 let pool, pubSessionID
 
+function monitorPool (when) {
+  return
+  const messageObj = `${when} - open: ${pool.connectionsOpen}, use: ${pool.connectionsInUse}`
+  log.debug(messageObj)
+}
+
 db.isOpened = false
 
 const pubKeepAlive = () => {
   if (!db.pubSessionActive) return
+  monitorPool('before exec')
   db.getConnectionPub().then((c) => {
     c.close()
+    monitorPool('after exec')
   })
 }
 
@@ -211,7 +218,9 @@ db.open = async () => {
   pool = await oci.createPool({
     user: nconf.get('oracle:username'),
     password: nconf.get('oracle:password'),
-    connectString: db.conectionString
+    connectString: db.conectionString,
+    poolMax: 16,
+    poolTimeout: 20
   })
   db.isOpened = true
   log.server('The database is open')
@@ -268,6 +277,7 @@ db.getConnectionPub = async () => await db.getConnection(pubSessionID)
  * @returns {Promise.<oracledb.IExecuteReturn>} The result Object. See https://github.com/oracle/node-oracledb/blob/master/doc/api.md#-result-object-properties
  */
 db.execute = async (aSessionId, aSql, aBindParams = [], aExecuteOptions = {}, aConnection = null) => {
+  monitorPool('before exec')
   const lConnection = aConnection ? aConnection : (await db.getConnection(aSessionId))
   try {
     return await lConnection.execute(aSql, aBindParams, aExecuteOptions)
@@ -276,6 +286,7 @@ db.execute = async (aSessionId, aSql, aBindParams = [], aExecuteOptions = {}, aC
     throw e
   } finally {
     aConnection || await lConnection.close()
+    monitorPool('after exec')
   }
 }
 
@@ -330,6 +341,7 @@ db.logon = async (aAfinaUser,
     from dual`
   if (!db.isOpened) await db.open()
   const lConnection = await pool.getConnection()
+  monitorPool('before exec')
   await lConnection.execute(`alter session set CURRENT_SCHEMA = ${db.schema}`)
   try {
     await lConnection.execute(sqlLogon, paramsLogin, {})
@@ -349,6 +361,7 @@ db.logon = async (aAfinaUser,
     return result
   } finally {
     await lConnection.close()
+    monitorPool('after exec')
   }
 }
 
