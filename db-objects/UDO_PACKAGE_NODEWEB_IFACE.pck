@@ -187,6 +187,12 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_DOCDATA  out blob
   );
 
+  procedure GET_AVAIL_ACTIONS
+  (
+    NRN         in number,
+    NACTIONMASK out number
+  );
+
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
 create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
@@ -194,17 +200,23 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
   -- Author  : IGOR-GO
   -- Created : 18.05.2016 12:01:40
   -- Purpose : Интерфейс для node.js
-  COND_STORE_GROUP   constant varchar2(13) := 'WEBUDP-CLAIMS';
-  SESS_V_COND_IDENT  constant varchar2(15) := 'CONDITION_IDENT';
-  SESS_V_DEPT_RN     constant varchar2(9) := 'DEPART_RN';
-  SESS_V_PERS_RN     constant varchar2(9) := 'PERSON_RN';
-  PMO_DEPT_RN        constant INS_DEPARTMENT.RN%type := 1664602; -- подразделение ПМО
-  DEFAULT_SORT_ORDER constant varchar2(50) := 'CHANGE_DATE DESC';
-  EVENT_TYPE_ADDON   constant number := 4412;
-  EVENT_TYPE_REBUKE  constant number := 4424;
-  EVENT_TYPE_ERROR   constant number := 4440;
+  COND_STORE_GROUP        constant varchar2(13) := 'WEBUDP-CLAIMS';
+  SESS_V_COND_IDENT       constant varchar2(15) := 'CONDITION_IDENT';
+  SESS_V_DEPT_RN          constant varchar2(9) := 'DEPART_RN';
+  SESS_V_PERS_RN          constant varchar2(9) := 'PERSON_RN';
+  SESS_V_ISPMO            constant varchar2(6) := 'IS_PMO';
+  PMO_DEPT_RN             constant INS_DEPARTMENT.RN%type := 1664602; -- подразделение ПМО
+  DEFAULT_SORT_ORDER      constant varchar2(50) := 'CHANGE_DATE DESC';
+  DEFAULT_LINKDOC_CATALOG constant ACATALOG.RN%type := 547;
+  EVENT_TYPE_ADDON        constant number := 4412;
+  EVENT_TYPE_REBUKE       constant number := 4424;
+  EVENT_TYPE_ERROR        constant number := 4440;
+  EVENTS_UNITCODE         constant UNITLIST.UNITCODE%type := 'ClientEvents';
 
   G_EMPTY_REC T_MOB_REP_REC;
+
+  TMP_STR varchar2(4000);
+  TMP_NUM number;
 
   function GET_CURRENT_RELEASES return T_MOB_REP
     pipelined is
@@ -389,6 +401,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     else
       IS_PMO := 0;
     end if;
+    PKG_SESSION_VARS.PUT(SESS_V_ISPMO,
+                         IS_PMO);
+  
   end;
 
   procedure SET_CONDS_
@@ -998,6 +1013,210 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     P_MIMETYPE := UDO_GET_FILE_CONTENTTYPE(L_DOC.FILE_PATH);
     P_FILESIZE := DBMS_LOB.GETLENGTH(P_DOCDATA);
     P_FILENAME := L_DOC.FILE_PATH;
+  end;
+
+  procedure GET_AVAIL_ACTIONS
+  (
+    NRN         in number,
+    NACTIONMASK out number
+  ) is
+  
+    BUPDATE     constant binary_integer := 1;
+    BDELETE     constant binary_integer := 2;
+    BSTATE      constant binary_integer := 4;
+    BSEND       constant binary_integer := 8;
+    BRETURN     constant binary_integer := 16;
+    BCLOSE      constant binary_integer := 32;
+    BADDNOTE    constant binary_integer := 64;
+    BADDDOCUM   constant binary_integer := 128;
+    BPRIORITIZE constant binary_integer := 256;
+    BHELPNEED   constant binary_integer := 512;
+    BHELPSTAT   constant binary_integer := 1024;
+  
+    L_BSTATE  boolean;
+    L_BRETURN boolean;
+  
+    cursor LC_EVENT is
+      select E.CRN,
+             PERS.PERS_AUTHID,
+             E.EVENT_TYPE,
+             E.EVENT_STAT
+        from CLNEVENTS  E,
+             CLNPERSONS PERS
+       where E.RN = NRN
+         and E.INIT_PERSON = PERS.RN;
+  
+    cursor LC_NEXTPOINTS
+    (
+      A_EVENT_TYPE   number,
+      A_EVENT_STATUS number
+    ) is
+      select count(*)
+        from DUAL
+       where exists (select *
+                from EVROUTES   R,
+                     EVRTPOINTS M
+               where M.PRN = R.RN
+                 and R.EVENT_TYPE = A_EVENT_TYPE
+                 and M.EVENT_STATUS = A_EVENT_STATUS);
+  
+    L_EVENT      LC_EVENT%rowtype;
+    IS_PMO       boolean;
+    IS_INITIATOR boolean;
+    HAS_POINTS   number;
+    L_RESULT     number := 0;
+  
+    function CHECK_RIGHT
+    (
+      A_CATALOG    number,
+      A_ACTIONCODE varchar2,
+      A_UNITCODE   varchar2 default EVENTS_UNITCODE
+    ) return boolean is
+      NRESULT number;
+      cursor LC_CHECK_RIGHT is
+        select count(*)
+          from DUAL
+         where exists (select /*+ INDEX(UP I_USERPRIV_CATALOG_AUTHID) INDEX(CP C_UNITPRIV_UK) */
+                 null
+                  from USERPRIV UP,
+                       UNITPRIV CP
+                 where UP.RN = CP.PRN
+                   and CP.FUNC = A_ACTIONCODE
+                   and UP.UNITCODE = A_UNITCODE
+                   and UP.CATALOG = A_CATALOG
+                   and UP.AUTHID = UTILIZER
+                union all
+                select /*+ INDEX(UP I_USERPRIV_CATALOG_ROLEID) INDEX(CP C_UNITPRIV_UK) */
+                 null
+                  from USERPRIV UP,
+                       UNITPRIV CP
+                 where UP.RN = CP.PRN
+                   and CP.FUNC = A_ACTIONCODE
+                   and UP.UNITCODE = A_UNITCODE
+                   and UP.CATALOG = A_CATALOG
+                   and UP.ROLEID in
+                       (select /*+ INDEX(UR I_USERROLES_AUTHID_FK) */
+                         UR.ROLEID
+                          from USERROLES UR
+                         where UR.AUTHID = UTILIZER));
+    begin
+      NRESULT := PKG_SESSION_VARS.GET_NUM(A_ACTIONCODE);
+      if NRESULT is not null then
+        return(NRESULT = 1);
+      end if;
+      open LC_CHECK_RIGHT;
+      fetch LC_CHECK_RIGHT
+        into NRESULT;
+      close LC_CHECK_RIGHT;
+      PKG_SESSION_VARS.PUT(SNAME  => A_ACTIONCODE,
+                           NVALUE => NRESULT);
+      return(NRESULT = 1);
+    end CHECK_RIGHT;
+  
+    function CHECK_RIGHTS_EX(A_ACTION_CODE in number) return boolean is
+      NRESULT number;
+    begin
+      begin
+        P_EVRTPTEXEC_CHECK_RIGHTS_EX(PKG_SESSION.GET_COMPANY,
+                                     NRN,
+                                     null,
+                                     A_ACTION_CODE,
+                                     NRESULT);
+      exception
+        when others then
+          return false;
+      end;
+      return(NRESULT = 1);
+    end CHECK_RIGHTS_EX;
+  
+    function BOOL_TO_INT(B in boolean) return number is
+      NRESULT number;
+    begin
+      if B then
+        NRESULT := 1;
+      elsif not B then
+        NRESULT := 0;
+      else
+        NRESULT := null;
+      end if;
+      return NRESULT;
+    end;
+  
+  begin
+    open LC_EVENT;
+    fetch LC_EVENT
+      into L_EVENT;
+    close LC_EVENT;
+    if L_EVENT.CRN is null then
+      return;
+    end if;
+    IS_PMO       := PKG_SESSION_VARS.GET_NUM(SESS_V_ISPMO) = 1;
+    IS_INITIATOR := (L_EVENT.PERS_AUTHID = UTILIZER);
+  
+    L_RESULT := L_RESULT +
+                BUPDATE * BOOL_TO_INT(CHECK_RIGHT(L_EVENT.CRN,
+                                                  'CLAIM_UPDATE') and
+                                      (IS_PMO or IS_INITIATOR));
+    L_RESULT := L_RESULT +
+                BDELETE *
+                BOOL_TO_INT(CHECK_RIGHT(L_EVENT.CRN,
+                                        'CLAIM_DELETE'));
+    L_RESULT := L_RESULT +
+                BSEND * BOOL_TO_INT(CHECK_RIGHT(L_EVENT.CRN,
+                                                'CLAIM_DO_SEND') and
+                                    CHECK_RIGHTS_EX(3));
+    L_RESULT := L_RESULT +
+                BCLOSE * BOOL_TO_INT(CHECK_RIGHT(L_EVENT.CRN,
+                                                 'CLAIM_CLOSE') and
+                                     CHECK_RIGHTS_EX(5));
+    L_RESULT := L_RESULT +
+                BPRIORITIZE *
+                BOOL_TO_INT(CHECK_RIGHT(L_EVENT.CRN,
+                                        'CLNEVENTS_SET_PRIORITY'));
+    L_RESULT := L_RESULT +
+                BADDNOTE *
+                BOOL_TO_INT(CHECK_RIGHT(L_EVENT.CRN,
+                                        'CLNEVNOTES_INSERT'));
+    L_RESULT := L_RESULT + BADDDOCUM *
+                BOOL_TO_INT(CHECK_RIGHT(DEFAULT_LINKDOC_CATALOG,
+                                                   'FILELINKS_INSERT',
+                                                   'FileLinks'));
+    L_RESULT := L_RESULT +
+                BHELPNEED *
+                BOOL_TO_INT(CHECK_RIGHT(L_EVENT.CRN,
+                                        'CLAIM_HELPSIGN_NEED'));
+    L_RESULT := L_RESULT +
+                BHELPSTAT *
+                BOOL_TO_INT(CHECK_RIGHT(L_EVENT.CRN,
+                                        'CLAIM_HELPSIGN_STAT'));
+  
+    L_BSTATE := CHECK_RIGHT(L_EVENT.CRN,
+                            'CLAIM_CHANGE_STATE') and CHECK_RIGHTS_EX(2);
+    if L_BSTATE then
+      open LC_NEXTPOINTS(L_EVENT.EVENT_TYPE,
+                         L_EVENT.EVENT_STAT);
+      fetch LC_NEXTPOINTS
+        into HAS_POINTS;
+      close LC_NEXTPOINTS;
+      L_BSTATE := L_BSTATE and (HAS_POINTS > 0);
+    end if;
+    L_RESULT := L_RESULT + BSTATE * BOOL_TO_INT(L_BSTATE);
+  
+    L_BRETURN := CHECK_RIGHT(L_EVENT.CRN,
+                             'CLAIM_RETURN') and CHECK_RIGHTS_EX(4);
+    if L_BRETURN then
+      begin
+        FIND_CLNEVENTS_RETPOINT(PKG_SESSION.GET_COMPANY,
+                                NRN                     => NRN,
+                                NPOINT_OUT              => TMP_NUM,
+                                SCOMMENTRY              => TMP_STR);
+      exception
+        when others then
+          L_BRETURN := false;
+      end;
+    end if;
+    L_RESULT    := L_RESULT + BRETURN * BOOL_TO_INT(L_BRETURN);
+    NACTIONMASK := L_RESULT;
   end;
 
 begin
