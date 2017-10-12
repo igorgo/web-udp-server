@@ -193,6 +193,13 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     NACTIONMASK out number
   );
 
+  procedure ACT_ADD_DOC
+  (
+    P_RN       in number,
+    P_FILENAME in varchar2,
+    P_FILE     in blob
+  );
+
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
 create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
@@ -1217,6 +1224,19 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     end if;
     L_RESULT    := L_RESULT + BRETURN * BOOL_TO_INT(L_BRETURN);
     NACTIONMASK := L_RESULT;
+  end;
+
+  procedure ACT_ADD_DOC
+  (
+    P_RN       in number,
+    P_FILENAME in varchar2,
+    P_FILE     in blob
+  ) is
+  begin
+    UDO_PKG_CLAIMS.CLAIM_ADD_LINKDOC(NCLAIM_RN     => P_RN,
+                                     BTEMPLATE     => P_FILE,
+                                     SLINKDOC_TYPE => null,
+                                     SLINKDOC_PATH => P_FILENAME);
   end;
 
 begin

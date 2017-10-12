@@ -79,6 +79,22 @@ async function getLinkedFile (socket, { sessionID, id }) {
   }
 }
 
+async function getClaimAvailableActions (socket, { sessionID, id }) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    begin
+      UDO_PACKAGE_NODEWEB_IFACE.ACT_ADD_DOC(
+        P_RN       => :P_RN,
+        P_FILENAME => :P_FILENAME,
+        P_FILE     => :P_FILE
+      );
+    end;
+  `
+}
+
 linkFiles.init = socket => {
   socket.on('get_linked_file', (data) => {
     void getLinkedFile(socket, data)
@@ -86,6 +102,8 @@ linkFiles.init = socket => {
   socket.on('get_claim_files', (pl) => {
     void getClaimFiles(socket, pl)
   })
-
+  socket.on('act_claim_add_file', (pl) => {
+    void actClaimAddFile(socket, pl)
+  })
 }
 linkFiles.getClaimFiles = getClaimFiles
