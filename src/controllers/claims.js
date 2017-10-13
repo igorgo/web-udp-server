@@ -171,7 +171,6 @@ async function getClaimAvailableActions (socket, { sessionID, id }) {
   }
 }
 
-
 claims.init = socket => {
   socket.on('get_claim_list', (data) => {
     void getClaimList(socket, data)

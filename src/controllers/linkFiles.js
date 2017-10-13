@@ -79,7 +79,7 @@ async function getLinkedFile (socket, { sessionID, id }) {
   }
 }
 
-async function getClaimAvailableActions (socket, { sessionID, id }) {
+async function actClaimAttachFile (socket, { sessionID, id, filename, content }) {
   if (!sessionID) {
     socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
     return
@@ -87,12 +87,23 @@ async function getClaimAvailableActions (socket, { sessionID, id }) {
   const sql = `
     begin
       UDO_PACKAGE_NODEWEB_IFACE.ACT_ADD_DOC(
-        P_RN       => :P_RN,
-        P_FILENAME => :P_FILENAME,
-        P_FILE     => :P_FILE
+        P_RN       => :RN,
+        P_FILENAME => :FILENAME,
+        P_FILE     => :FILE
       );
     end;
   `
+  const params = db.createParams()
+  params.add('RN').dirIn().typeNumber().val(id)
+  params.add('FILENAME').dirIn().typeString().val(filename)
+  params.add('FILE').dirIn().typeBuffer().val(content)
+  try {
+    const res = await db.execute(sessionID, sql, params)
+    socket.emit('claim_action_complete', { action: 'attach', id })
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
 }
 
 linkFiles.init = socket => {
@@ -102,8 +113,8 @@ linkFiles.init = socket => {
   socket.on('get_claim_files', (pl) => {
     void getClaimFiles(socket, pl)
   })
-  socket.on('act_claim_add_file', (pl) => {
-    void actClaimAddFile(socket, pl)
+  socket.on('act_claim_attach_file', (pl) => {
+    void actClaimAttachFile(socket, pl)
   })
 }
 linkFiles.getClaimFiles = getClaimFiles
