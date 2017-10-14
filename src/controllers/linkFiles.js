@@ -99,7 +99,7 @@ async function actClaimAttachFile (socket, { sessionID, id, filename, content })
   params.add('FILE').dirIn().typeBuffer().val(content)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_action_complete', { action: 'attach', id })
+    socket.emit('claim_file_attached', { id, filename })
   }
   catch (e) {
     routine.emitExecutionError(e, socket)
