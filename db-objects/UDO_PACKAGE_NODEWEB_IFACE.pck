@@ -200,6 +200,9 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_FILE     in blob
   );
 
+  function GET_ALL_PERSON return T_MOB_REP
+    pipelined;
+
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
 create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
@@ -218,6 +221,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
   EVENT_TYPE_ADDON        constant number := 4412;
   EVENT_TYPE_REBUKE       constant number := 4424;
   EVENT_TYPE_ERROR        constant number := 4440;
+  PERS_SERV_CRN           constant number := 1647644;
   EVENTS_UNITCODE         constant UNITLIST.UNITCODE%type := 'ClientEvents';
 
   G_EMPTY_REC T_MOB_REP_REC;
@@ -1237,6 +1241,31 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
                                      BTEMPLATE     => P_FILE,
                                      SLINKDOC_TYPE => null,
                                      SLINKDOC_PATH => P_FILENAME);
+  end;
+
+  function GET_ALL_PERSON return T_MOB_REP
+    pipelined is
+    cursor LC_PERS is
+      select SPERS_AGENT || ' (' || SOWNER_AGENT || ')' as LBL,
+             SCODE
+        from V_CLNPERSONS
+       where DDISMISS_DATE is null
+         and NCRN != PERS_SERV_CRN
+       order by 1;
+    L_PERS LC_PERS%rowtype;
+    L_REC  T_MOB_REP_REC;
+  begin
+    open LC_PERS;
+    loop
+      fetch LC_PERS
+        into L_PERS;
+      exit when LC_PERS%notfound;
+      L_REC     := G_EMPTY_REC;
+      L_REC.S01 := L_PERS.LBL;
+      L_REC.S02 := L_PERS.SCODE;
+      pipe row(L_REC);
+    end loop;
+    close LC_PERS;
   end;
 
 begin

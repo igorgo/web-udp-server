@@ -80,5 +80,20 @@ select S01 as VERSION,
   }
 }
 
+staticDicts.getAllPersons = async (socket, sessionID) => {
+  const sql = `
+    select
+        S01 as "label",
+        S02 as "code"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_PERSON)
+  `
+  try {
+    const res = await db.execute(sessionID, sql)
+    socket.emit('all_persons_loaded', res.rows)
+  } catch (e) {
+    log.error(e)
+  }
+}
+
 staticDicts.init = socket => {
 }
