@@ -111,10 +111,30 @@ async function getAppsByUnits (socket, { sessionID, units }) {
   }
 }
 
+async function getFuncsByUnits (socket, { sessionID, units }) {
+  const sql = `
+    select
+        S01 as "funcName"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_FUNCS_BY_UNIT(:UNITS))
+  `
+  const params = db.createParams()
+  params.add('UNITS').dirIn().typeString().val(units)
+  try {
+    const res = await db.execute(sessionID, sql, params)
+    socket.emit('funcs_by_unit_got', res.rows)
+  } catch (e) {
+    log.error(e)
+  }
+}
+
 staticDicts.init = socket => {
   socket.on('get_apps_by_unit', (pl) => {
     void staticDicts.getAppsByUnits(socket, pl)
   })
+  socket.on('get_funcs_by_unit', (pl) => {
+    void staticDicts.getFuncsByUnits(socket, pl)
+  })
 }
 
 staticDicts.getAppsByUnits = getAppsByUnits
+staticDicts.getFuncsByUnits = getFuncsByUnits
