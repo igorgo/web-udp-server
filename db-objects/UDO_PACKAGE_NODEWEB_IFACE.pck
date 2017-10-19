@@ -203,6 +203,9 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
   function GET_ALL_PERSON return T_MOB_REP
     pipelined;
 
+  function GET_APPS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
+    pipelined;
+
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
 create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
@@ -223,11 +226,50 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
   EVENT_TYPE_ERROR        constant number := 4440;
   PERS_SERV_CRN           constant number := 1647644;
   EVENTS_UNITCODE         constant UNITLIST.UNITCODE%type := 'ClientEvents';
+  ALL_REL_APPS            constant varchar2(50) := 'Всі, пов''язані з розділом';
 
   G_EMPTY_REC T_MOB_REP_REC;
 
   TMP_STR varchar2(4000);
   TMP_NUM number;
+
+  function TOK2IN_(STR varchar2) return varchar2 is
+    DELIM  char(1) := ';';
+    K      binary_integer;
+    N      binary_integer;
+    RETSTR PKG_STD.TSQL;
+    CSTR   PKG_STD.TSTRING;
+  begin
+    N := STRCNT(STR,
+                DELIM);
+    if N > 1 then
+      RETSTR := '';
+      K      := 0;
+      loop
+        K    := K + 1;
+        CSTR := trim(STRTOK(STR,
+                            DELIM,
+                            K));
+        if CSTR is not null then
+          RETSTR := STRCOMBINE(RETSTR,
+                               '''' || CSTR || '''',
+                               ',');
+        end if;
+        exit when K = N;
+      end loop;
+      if RETSTR is not null then
+        return ' IN (' || RETSTR || ') ';
+      else
+        return ' IS NULL ';
+      end if;
+    else
+      if STR is not null then
+        return ' = ''' || STR || ''' ';
+      else
+        return ' IS NULL ';
+      end if;
+    end if;
+  end;
 
   function GET_CURRENT_RELEASES return T_MOB_REP
     pipelined is
@@ -1268,6 +1310,32 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     close LC_PERS;
   end;
 
+  function GET_APPS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
+    pipelined is
+    L_SQL PKG_STD.TSQL;
+    type T_APP_COURSOR is ref cursor;
+    L_APP_COURSOR T_APP_COURSOR;
+    L_APP         PKG_STD.TSTRING;
+    L_REC         T_MOB_REP_REC;
+  begin
+    L_SQL     := 'select distinct ANAME ';
+    L_SQL     := L_SQL || '  from MV_UNITFUNK';
+    L_SQL     := L_SQL || ' where UNAME ';
+    L_SQL     := L_SQL || TOK2IN_(P_UNIT);
+    L_SQL     := L_SQL || ' order by ANAME';
+    L_REC     := G_EMPTY_REC;
+    L_REC.S01 := ALL_REL_APPS;
+    pipe row(L_REC);
+    open L_APP_COURSOR for L_SQL;
+    loop
+      L_REC := G_EMPTY_REC;
+      fetch L_APP_COURSOR
+        into L_REC.S01;
+      exit when L_APP_COURSOR%notfound;
+      pipe row(L_REC);
+    end loop;
+    close L_APP_COURSOR;
+  end;
 begin
   -- Initialization
   null;

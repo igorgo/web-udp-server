@@ -95,5 +95,26 @@ staticDicts.getAllPersons = async (socket, sessionID) => {
   }
 }
 
-staticDicts.init = socket => {
+async function getAppsByUnits (socket, { sessionID, units }) {
+  const sql = `
+    select
+        S01 as "appName"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_APPS_BY_UNIT(:UNITS))
+  `
+  const params = db.createParams()
+  params.add('UNITS').dirIn().typeString().val(units)
+  try {
+    const res = await db.execute(sessionID, sql, params)
+    socket.emit('apps_by_unit_got', res.rows)
+  } catch (e) {
+    log.error(e)
+  }
 }
+
+staticDicts.init = socket => {
+  socket.on('get_apps_by_unit', (pl) => {
+    void staticDicts.getAppsByUnits(socket, pl)
+  })
+}
+
+staticDicts.getAppsByUnits = getAppsByUnits
