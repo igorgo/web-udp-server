@@ -171,6 +171,87 @@ async function getClaimAvailableActions (socket, { sessionID, id }) {
   }
 }
 
+async function doClaimDelete (socket, {sessionID, id}) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    begin
+      UDO_PKG_CLAIMS.CLAIM_DELETE(NRN => :NRN);
+    end;`
+  const params = db.createParams()
+  params.add('NRN').dirIn().typeNumber().val(id)
+  try {
+    const res = (await db.execute(sessionID, sql, params))
+    socket.emit('claim_delete_done')
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
+async function doClaimInsert (
+  socket, {
+    sessionID,
+    cType,
+    cPriority,
+    cSend,
+    cInit,
+    cApp,
+    cUnit,
+    cFunc,
+    cContent,
+    cRelFrom,
+    cBldFrom,
+    cRelTo
+  }) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    begin
+      UDO_PKG_CLAIMS.CLAIM_INSERT(
+        NCRN                => null,
+        SEVENT_TYPE         => :SEVENT_TYPE,
+        SLINKED_CLAIM       => null,
+        NPRIORITY           => :NPRIORITY,
+        NSEND_TO_DEVELOPERS => :NSEND_TO_DEVELOPERS,
+        SINIT_PERSON        => :SINIT_PERSON,
+        SMODULE             => :SMODULE,
+        SUNITCODE           => :SUNITCODE,
+        SUNITFUNC           => :SUNITFUNC,
+        SEVENT_DESCR        => :SEVENT_DESCR,
+        SREL_FROM           => :SREL_FROM,
+        SBUILD_FROM         => :SBUILD_FROM,
+        SREL_TO             => :SREL_TO,
+        NRN                 => :NRN
+      );
+    end;`
+  const params = db.createParams()
+  params.add('SEVENT_TYPE').dirIn().typeString().val(cType)
+  params.add('NPRIORITY').dirIn().typeNumber().val(cPriority)
+  params.add('NSEND_TO_DEVELOPERS').dirIn().typeNumber().val(cSend)
+  params.add('SINIT_PERSON').dirIn().typeString().val(cInit)
+  params.add('SMODULE').dirIn().typeString().val(cApp)
+  params.add('SUNITCODE').dirIn().typeString().val(cUnit)
+  params.add('SUNITFUNC').dirIn().typeString().val(cFunc)
+  params.add('SEVENT_DESCR').dirIn().typeString().val(cContent)
+  params.add('SREL_FROM').dirIn().typeString().val(cRelFrom)
+  params.add('SBUILD_FROM').dirIn().typeString().val(cBldFrom)
+  params.add('SREL_TO').dirIn().typeString().val(cRelTo)
+  params.add('NRN').dirOut().typeNumber()
+  try {
+    const res = (await db.execute(sessionID, sql, params))
+    socket.emit('claim_insert_done',{id: res.outBinds['NRN']})
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
+
 claims.init = socket => {
   socket.on('get_claim_list', (data) => {
     void getClaimList(socket, data)
@@ -183,5 +264,11 @@ claims.init = socket => {
   })
   socket.on('get_claim_avail_actions', (pl) => {
     void getClaimAvailableActions(socket, pl)
+  })
+  socket.on('do_claim_delete', (pl) => {
+    void doClaimDelete(socket, pl)
+  })
+  socket.on('do_claim_insert', (pl) => {
+    void doClaimInsert(socket, pl)
   })
 }

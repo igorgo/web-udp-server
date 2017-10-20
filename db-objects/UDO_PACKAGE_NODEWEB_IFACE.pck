@@ -193,6 +193,15 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     NACTIONMASK out number
   );
 
+  function GET_ALL_PERSON return T_MOB_REP
+    pipelined;
+		
+  function GET_APPS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
+    pipelined;
+		
+	function GET_FUNCS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
+    pipelined;	
+
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
 create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
@@ -211,18 +220,59 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
   EVENT_TYPE_ADDON        constant number := 4412;
   EVENT_TYPE_REBUKE       constant number := 4424;
   EVENT_TYPE_ERROR        constant number := 4440;
+  PERS_SERV_CRN           constant number := 1647644;
   EVENTS_UNITCODE         constant UNITLIST.UNITCODE%type := 'ClientEvents';
+  ALL_REL_APPS            constant varchar2(50) := 'Всі, що пов''язані з розділом';
 
   G_EMPTY_REC T_MOB_REP_REC;
 
   TMP_STR varchar2(4000);
   TMP_NUM number;
 
+  function TOK2IN_(STR varchar2) return varchar2 is
+    DELIM  char(1) := ';';
+    K      binary_integer;
+    N      binary_integer;
+    RETSTR PKG_STD.TSQL;
+    CSTR   PKG_STD.TSTRING;
+  begin
+    N := STRCNT(STR,
+                DELIM);
+    if N > 1 then
+      RETSTR := '';
+      K      := 0;
+      loop
+        K    := K + 1;
+        CSTR := trim(STRTOK(STR,
+                            DELIM,
+                            K));
+        if CSTR is not null then
+          RETSTR := STRCOMBINE(RETSTR,
+                               '''' || CSTR || '''',
+                               ',');
+        end if;
+        exit when K = N;
+      end loop;
+      if RETSTR is not null then
+        return ' IN (' || RETSTR || ') ';
+      else
+        return ' IS NULL ';
+      end if;
+    else
+      if STR is not null then
+        return ' = ''' || STR || ''' ';
+      else
+        return ' IS NULL ';
+      end if;
+    end if;
+  end;
+
   function GET_CURRENT_RELEASES return T_MOB_REP
     pipelined is
     cursor LC_RELEASES is
       select REL.RN,
              REL.RELNAME,
+						 REL.SOFTVERSION,
              REL.RELDATE,
              BLD.BLDNUMB,
              BLD.BUILDATE,
@@ -230,6 +280,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
         from (select R.RN,
                      R.RELNAME RELNAME,
                      R.BEGDATE RELDATE,
+										 trim(R.SOFTVERSION) SOFTVERSION,
                      RANK() OVER(order by R.BEGDATE desc) RNK
                 from UDO_SOFTRELEASES R
                where R.BEGDATE is not null) REL,
@@ -276,6 +327,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       L_REC     := G_EMPTY_REC;
       L_REC.S01 := L_RELEASE.RELNAME;
       L_REC.S02 := L_RELEASE.BLDNUMB;
+      L_REC.S03 := L_RELEASE.SOFTVERSION;
       L_REC.D01 := L_RELEASE.RELDATE;
       L_REC.D02 := L_RELEASE.BUILDATE;
       if L_RELEASE.RNK = 1 then
@@ -453,7 +505,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     L_REC.S06 := L_CLAIM.SCLIENT_PERSON_AGNCODE;
     L_REC.S07 := L_CLAIM.SEXECUTOR;
     L_REC.S08 := L_CLAIM.SBUILD_FROM;
-    L_REC.S09 := L_CLAIM.SBUILD_TO;
+    L_REC.S09 := L_CLAIM.SBUILD_TO2;
     L_REC.S10 := L_CLAIM.SUNITCODE;
     L_REC.S11 := L_CLAIM.SMODULE;
     L_REC.S12 := L_CLAIM.SUNITFUNC;
@@ -1217,6 +1269,81 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     end if;
     L_RESULT    := L_RESULT + BRETURN * BOOL_TO_INT(L_BRETURN);
     NACTIONMASK := L_RESULT;
+  end;
+
+
+  function GET_ALL_PERSON return T_MOB_REP
+    pipelined is
+    cursor LC_PERS is
+      select SPERS_AGENT || ' (' || SOWNER_AGENT || ')' as LBL,
+             replace(SCODE,' ','#') as SCODE
+        from V_CLNPERSONS
+       where DDISMISS_DATE is null
+         and NCRN != PERS_SERV_CRN
+       order by 1;
+    L_PERS LC_PERS%rowtype;
+    L_REC  T_MOB_REP_REC;
+  begin
+    open LC_PERS;
+    loop
+      fetch LC_PERS
+        into L_PERS;
+      exit when LC_PERS%notfound;
+      L_REC     := G_EMPTY_REC;
+      L_REC.S01 := L_PERS.LBL;
+      L_REC.S02 := L_PERS.SCODE;
+      pipe row(L_REC);
+    end loop;
+    close LC_PERS;
+  end;
+
+  function GET_APPS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
+    pipelined is
+    L_SQL PKG_STD.TSQL;
+    type T_APP_COURSOR is ref cursor;
+    L_APP_COURSOR T_APP_COURSOR;
+    L_REC         T_MOB_REP_REC;
+  begin
+    L_SQL     := 'select distinct ANAME ';
+    L_SQL     := L_SQL || '  from MV_UNITFUNK';
+    L_SQL     := L_SQL || ' where UNAME ';
+    L_SQL     := L_SQL || TOK2IN_(P_UNIT);
+    L_SQL     := L_SQL || ' order by ANAME';
+    L_REC     := G_EMPTY_REC;
+    L_REC.S01 := ALL_REL_APPS;
+    pipe row(L_REC);
+    open L_APP_COURSOR for L_SQL;
+    loop
+      L_REC := G_EMPTY_REC;
+      fetch L_APP_COURSOR
+        into L_REC.S01;
+      exit when L_APP_COURSOR%notfound;
+      pipe row(L_REC);
+    end loop;
+    close L_APP_COURSOR;
+  end;
+
+  function GET_FUNCS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
+    pipelined is
+    cursor LC_FUNC is
+      select distinct FNAME,
+                      FNUMB
+        from MV_UNITFUNK
+       where UNAME = P_UNIT
+       order by FNUMB;
+    L_FUNC LC_FUNC%rowtype;
+    L_REC  T_MOB_REP_REC;
+  begin
+    open LC_FUNC;
+    loop
+      fetch LC_FUNC
+        into L_FUNC;
+      exit when LC_FUNC%notfound;
+      L_REC     := G_EMPTY_REC;
+      L_REC.S01 := L_FUNC.FNAME;
+      pipe row(L_REC);
+    end loop;
+    close LC_FUNC;
   end;
 
 begin
