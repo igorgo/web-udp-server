@@ -26,7 +26,7 @@
     "concolor": "^0.1.5",
     "lodash": "^4.17.4",
     "mkdirp": "^0.5.1",
-    "nconf": "^0.8.4",
+    "nconf": "^0.8.5",
     "oracledb": "^1.13.1",
     "prompt": "^1.0.0",
     "semver": "^5.4.1",

@@ -8,6 +8,7 @@ async function getReleases (socket) {
     const res = await db.executePub(`
 select S01 as RELNAME,
        S02 as BLDNUMB,
+       S03 as "version",
        D01 as RELDATE,
        D02 as DBUILDATE,
        N01 as OPENED,
