@@ -140,11 +140,14 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
          S06 as "changedByAgent",
          S07 as "executor",
          S08 as "buildFrom",
-         S09 as "buildTo",
+         S09 as "buildToComb",
          S10 as "unit",
          S11 as "app",
          S12 as "action",
          S13 as "content",
+         S14 as "relFrom",
+         S15 as "relTo",
+         S16 as "buildTo",
          N01 as "rn",
          N02 as "priority",
          N03 as "helpSign",
@@ -195,12 +198,19 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
 
   function GET_ALL_PERSON return T_MOB_REP
     pipelined;
-		
+
   function GET_APPS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
     pipelined;
-		
-	function GET_FUNCS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
-    pipelined;	
+
+  function GET_FUNCS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
+    pipelined;
+
+  procedure ACT_ADD_DOC
+  (
+    P_RN       in number,
+    P_FILENAME in varchar2,
+    P_FILE     in blob
+  );
 
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
@@ -272,7 +282,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     cursor LC_RELEASES is
       select REL.RN,
              REL.RELNAME,
-						 REL.SOFTVERSION,
+             REL.SOFTVERSION,
              REL.RELDATE,
              BLD.BLDNUMB,
              BLD.BUILDATE,
@@ -280,7 +290,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
         from (select R.RN,
                      R.RELNAME RELNAME,
                      R.BEGDATE RELDATE,
-										 trim(R.SOFTVERSION) SOFTVERSION,
+                     trim(R.SOFTVERSION) SOFTVERSION,
                      RANK() OVER(order by R.BEGDATE desc) RNK
                 from UDO_SOFTRELEASES R
                where R.BEGDATE is not null) REL,
@@ -510,6 +520,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     L_REC.S11 := L_CLAIM.SMODULE;
     L_REC.S12 := L_CLAIM.SUNITFUNC;
     L_REC.S13 := L_CLAIM.SEVENT_DESCR;
+    L_REC.S14 := L_CLAIM.srel_from;
+    L_REC.S15 := L_CLAIM.srel_to;
+    L_REC.S16 := L_CLAIM.sbuild_to;
     L_REC.N01 := L_CLAIM.NRN;
     L_REC.N02 := L_CLAIM.NPRIORITY;
     L_REC.N03 := L_CLAIM.NHELPSIGN;
@@ -1271,12 +1284,13 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     NACTIONMASK := L_RESULT;
   end;
 
-
   function GET_ALL_PERSON return T_MOB_REP
     pipelined is
     cursor LC_PERS is
       select SPERS_AGENT || ' (' || SOWNER_AGENT || ')' as LBL,
-             replace(SCODE,' ','#') as SCODE
+             replace(SCODE,
+                     ' ',
+                     '#') as SCODE
         from V_CLNPERSONS
        where DDISMISS_DATE is null
          and NCRN != PERS_SERV_CRN
@@ -1344,6 +1358,19 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       pipe row(L_REC);
     end loop;
     close LC_FUNC;
+  end;
+
+  procedure ACT_ADD_DOC
+  (
+    P_RN       in number,
+    P_FILENAME in varchar2,
+    P_FILE     in blob
+  ) is
+  begin
+    UDO_PKG_CLAIMS.CLAIM_ADD_LINKDOC(NCLAIM_RN     => P_RN,
+                                     BTEMPLATE     => P_FILE,
+                                     SLINKDOC_TYPE => null,
+                                     SLINKDOC_PATH => P_FILENAME);
   end;
 
 begin

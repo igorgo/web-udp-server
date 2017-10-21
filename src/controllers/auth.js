@@ -18,7 +18,7 @@ async function login(socket, { user, pass }) {
     sessions.set(res.sessionID, sessions.keys.IS_PMO, res.isPmo)
     sessions.set(res.sessionID, sessions.keys.FULL_NAME, res.userFullName)
     socket.emit('authorized', res)
-    void userData.getAllUserData(socket)
+    void userData.getAllUserData(socket, res.sessionID)
     void sessionStatic.getAllUnits(socket, res.sessionID)
     void sessionStatic.getAllApps(socket, res.sessionID)
     void sessionStatic.getAllBuilds(socket, res.sessionID)

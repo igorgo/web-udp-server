@@ -94,11 +94,14 @@ async function getClaimRecord (socket, {sessionID, id}) {
            S06 as "changedByAgent",
            S07 as "executor",
            S08 as "buildFrom",
-           S09 as "buildTo",
+           S09 as "buildToComb",
            S10 as "unit",
            S11 as "app",
            S12 as "action",
            S13 as "content",
+           S14 as "relFrom",
+           S15 as "relTo",
+           S16 as "buildTo",
   		   N01 as "id",
            N02 as "priority",
            N03 as "helpSign",
@@ -191,6 +194,55 @@ async function doClaimDelete (socket, {sessionID, id}) {
   }
 }
 
+async function doClaimUpdate (
+  socket, {
+    sessionID,
+    cId,
+    cContent,
+    cRelFrom,
+    cBldFrom,
+    cRelTo,
+    cApp,
+    cUnit,
+    cFunc,
+  }) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    begin
+      UDO_PKG_CLAIMS.CLAIM_UPDATE(
+        NRN           => :NRN,
+        SLINKED_CLAIM => null,
+        SEVENT_DESCR  => :SEVENT_DESCR,
+        SREL_FROM     => :SREL_FROM,
+        SBUILD_FROM   => :SBUILD_FROM,
+        SREL_TO       => :SREL_TO,
+        SBUILD_TO     => null,
+        SMODULE       => :SMODULE,
+        SUNITCODE     => :SUNITCODE,
+        SUNITFUNC     => :SUNITFUNC
+      );
+    end;`
+  const params = db.createParams()
+  params.add('NRN').dirIn().typeNumber().val(cId)
+  params.add('SEVENT_DESCR').dirIn().typeString().val(cContent)
+  params.add('SREL_FROM').dirIn().typeString().val(cRelFrom)
+  params.add('SBUILD_FROM').dirIn().typeString().val(cBldFrom)
+  params.add('SREL_TO').dirIn().typeString().val(cRelTo)
+  params.add('SMODULE').dirIn().typeString().val(cApp)
+  params.add('SUNITCODE').dirIn().typeString().val(cUnit)
+  params.add('SUNITFUNC').dirIn().typeString().val(cFunc)
+  try {
+    const res = (await db.execute(sessionID, sql, params))
+    socket.emit('claim_update_done',{id: cId})
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
 async function doClaimInsert (
   socket, {
     sessionID,
@@ -267,6 +319,9 @@ claims.init = socket => {
   })
   socket.on('do_claim_delete', (pl) => {
     void doClaimDelete(socket, pl)
+  })
+  socket.on('do_claim_update', (pl) => {
+    void doClaimUpdate(socket, pl)
   })
   socket.on('do_claim_insert', (pl) => {
     void doClaimInsert(socket, pl)
