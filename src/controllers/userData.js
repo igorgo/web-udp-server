@@ -4,9 +4,9 @@ const log = require('../logger')
 const db = require('../db')
 const userData = module.exports
 
-userData.getAllUserData = async socket => {
+userData.getAllUserData = async (socket, sessionID) => {
   try {
-    const res = await db.execute(socket.sessionID, `
+    const res = await db.execute(sessionID, `
 select S02 as PARAM_NAME,
        S01 as STR_VAL,
        N01 as NUM_VAL,
