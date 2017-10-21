@@ -140,11 +140,14 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
          S06 as "changedByAgent",
          S07 as "executor",
          S08 as "buildFrom",
-         S09 as "buildTo",
+         S09 as "buildToComb",
          S10 as "unit",
          S11 as "app",
          S12 as "action",
          S13 as "content",
+         S14 as "relFrom",
+         S15 as "relTo",
+         S16 as "buildTo",
          N01 as "rn",
          N02 as "priority",
          N03 as "helpSign",
@@ -517,6 +520,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     L_REC.S11 := L_CLAIM.SMODULE;
     L_REC.S12 := L_CLAIM.SUNITFUNC;
     L_REC.S13 := L_CLAIM.SEVENT_DESCR;
+    L_REC.S14 := L_CLAIM.srel_from;
+    L_REC.S15 := L_CLAIM.srel_to;
+    L_REC.S16 := L_CLAIM.sbuild_to;
     L_REC.N01 := L_CLAIM.NRN;
     L_REC.N02 := L_CLAIM.NPRIORITY;
     L_REC.N03 := L_CLAIM.NHELPSIGN;
