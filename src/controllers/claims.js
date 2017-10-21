@@ -194,6 +194,26 @@ async function doClaimDelete (socket, {sessionID, id}) {
   }
 }
 
+async function doClaimAnnull (socket, {sessionID, id}) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    begin
+      UDO_PKG_CLAIMS.CLAIM_CLOSE(NRN => :NRN);
+    end;`
+  const params = db.createParams()
+  params.add('NRN').dirIn().typeNumber().val(id)
+  try {
+    const res = (await db.execute(sessionID, sql, params))
+    socket.emit('claim_annull_done')
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
 async function doClaimUpdate (
   socket, {
     sessionID,
@@ -319,6 +339,9 @@ claims.init = socket => {
   })
   socket.on('do_claim_delete', (pl) => {
     void doClaimDelete(socket, pl)
+  })
+  socket.on('do_claim_annull', (pl) => {
+    void doClaimAnnull(socket, pl)
   })
   socket.on('do_claim_update', (pl) => {
     void doClaimUpdate(socket, pl)
