@@ -5,6 +5,7 @@ const db = require('../db')
 const routine = require('./routine')
 // const log = require('../logger')
 const {getClaimFiles} = require('./linkFiles')
+const sessions = require('../sessions')
 
 const claims = module.exports
 
@@ -422,6 +423,60 @@ async function getClaimNextExecutors (socket, {sessionID, id, pointId}) {
   }
 }
 
+async function getClaimRetMessage (socket, {sessionID, id}) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    begin
+      FIND_CLNEVENTS_RETPOINT(
+        NCOMPANY   => :NCOMPANY,
+        NRN        => :NRN,
+        NPOINT_OUT => :NPOINT_OUT,
+        SCOMMENTRY => :SCOMMENTRY
+      );
+    end;`
+  const params = db.createParams()
+  params.add('NRN').dirIn().typeNumber().val(id)
+  params.add('NCOMPANY').dirIn().typeNumber().val(sessions.get(sessionID, sessions.keys.NCOMPANY))
+  params.add('NPOINT_OUT').dirOut().typeNumber()
+  params.add('SCOMMENTRY').dirOut().typeString(1000)
+  try {
+    const res = (await db.execute(sessionID, sql, params))
+    socket.emit('claim_ret_message_got',{id: res.outBinds['SCOMMENTRY']})
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
+async function doClaimReturn (socket, {sessionID, cId, cNoteHeader, cNote}) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    begin
+      UDO_PKG_CLAIMS.CLAIM_RETURN(
+        NRN          => :NRN,
+        SNOTE_HEADER => :SNOTE_HEADER,
+        SNOTE        => :SNOTE
+      );
+    end;`
+  const params = db.createParams()
+  params.add('NRN').dirIn().typeNumber().val(cId)
+  params.add('SNOTE_HEADER').dirIn().typeString().val(cNoteHeader)
+  params.add('SNOTE').dirIn().typeString().val(cNote)
+  try {
+    const res = (await db.execute(sessionID, sql, params))
+    socket.emit('claim_return_done',{id: cId})
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
 claims.init = socket => {
   socket.on('get_claim_list', (data) => {
     void getClaimList(socket, data)
@@ -456,4 +511,11 @@ claims.init = socket => {
   socket.on('do_claim_insert', (pl) => {
     void doClaimInsert(socket, pl)
   })
+  socket.on('do_claim_return', (pl) => {
+    void doClaimReturn(socket, pl)
+  })
+  socket.on('get_claim_ret_message', (pl) => {
+    void getClaimRetMessage(socket, pl)
+  })
+
 }
