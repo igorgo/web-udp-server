@@ -212,6 +212,16 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_FILE     in blob
   );
 
+  function GET_NEXTPOINTS(P_RN in number) return T_MOB_REP
+    pipelined;
+
+  function GET_NEXTPOINT_EXECUTORS
+  (
+    P_RN    in number,
+    P_POINT in number
+  ) return T_MOB_REP
+    pipelined;
+
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
 create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
@@ -238,6 +248,15 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
 
   TMP_STR varchar2(4000);
   TMP_NUM number;
+
+  function BRACKET_(S varchar2) return varchar2 deterministic is
+  begin
+    if S is not null then
+      return '(' || S || ')';
+    else
+      return null;
+    end if;
+  end;
 
   function TOK2IN_(STR varchar2) return varchar2 is
     DELIM  char(1) := ';';
@@ -520,9 +539,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     L_REC.S11 := L_CLAIM.SMODULE;
     L_REC.S12 := L_CLAIM.SUNITFUNC;
     L_REC.S13 := L_CLAIM.SEVENT_DESCR;
-    L_REC.S14 := L_CLAIM.srel_from;
-    L_REC.S15 := L_CLAIM.srel_to;
-    L_REC.S16 := L_CLAIM.sbuild_to;
+    L_REC.S14 := L_CLAIM.SREL_FROM;
+    L_REC.S15 := L_CLAIM.SREL_TO;
+    L_REC.S16 := L_CLAIM.SBUILD_TO;
     L_REC.N01 := L_CLAIM.NRN;
     L_REC.N02 := L_CLAIM.NPRIORITY;
     L_REC.N03 := L_CLAIM.NHELPSIGN;
@@ -1371,6 +1390,107 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
                                      BTEMPLATE     => P_FILE,
                                      SLINKDOC_TYPE => null,
                                      SLINKDOC_PATH => P_FILENAME);
+  end;
+
+  function GET_NEXTPOINTS(P_RN in number) return T_MOB_REP
+    pipelined is
+    cursor LC_POINTS is
+      select P.RN as POINT,
+             S.EVNSTAT_CODE,
+             S.STATBUILDNEED
+        from EVRTPOINTS   M,
+             EVROUTES     R,
+             CLNEVENTS    E,
+             EVRTPTPASS   T,
+             EVRTPOINTS   P,
+             CLNEVNTYPSTS NS,
+             CLNEVNSTATS  S
+       where E.RN = P_RN
+         and R.EVENT_TYPE = E.EVENT_TYPE
+         and M.EVENT_STATUS = E.EVENT_STAT
+         and M.PRN = R.RN
+         and T.PRN = M.RN
+         and T.NEXT_POINT = P.RN
+         and P.EVENT_STATUS = NS.RN
+         and NS.EVENT_STATUS = S.RN
+       order by S.EVNSTAT_CODE;
+    L_POINT LC_POINTS %rowtype;
+    L_REC   T_MOB_REP_REC;
+  begin
+    open LC_POINTS;
+    loop
+      fetch LC_POINTS
+        into L_POINT;
+      exit when LC_POINTS%notfound;
+      L_REC     := G_EMPTY_REC;
+      L_REC.S01 := L_POINT.EVNSTAT_CODE;
+      L_REC.N01 := L_POINT.POINT;
+      L_REC.N02 := L_POINT.STATBUILDNEED;
+      pipe row(L_REC);
+    end loop;
+    close LC_POINTS;
+  end;
+
+  function GET_NEXTPOINT_EXECUTORS
+  (
+    P_RN    in number,
+    P_POINT in number
+  ) return T_MOB_REP
+    pipelined is
+    cursor LC_DEFEXEC is
+      select count(*) CNT
+        from DUAL
+       where exists (select null
+                from EVRTPTPASS R,
+                     EVRTPOINTS P,
+                     CLNEVENTS  E
+               where E.RN = P_RN
+                 and P.EVENT_STATUS = E.EVENT_STAT
+                 and R.PRN = P.RN
+                 and R.NEXT_POINT = P_POINT
+                 and R.DEFAULT_EXEC = 0);
+  
+    cursor LC_EXECS is
+      select T.PERSON_CODE,
+             A.AGNABBR,
+             T.POST_CODE,
+             T.DIVISION_CODE
+        from V_EVRTPTEXEC_PERSON T,
+             CLNPERSONS          PRS,
+             AGNLIST             A
+       where T.EVENT is null
+         and T.POINT = P_POINT
+         and T.PERSON = PRS.RN
+         and PRS.PERS_AGENT = A.RN
+       order by T.PERSON_CODE;
+    L_EXEC LC_EXECS %rowtype;
+    L_REC  T_MOB_REP_REC;
+    L_CNT  number;
+  begin
+    open LC_DEFEXEC;
+    fetch LC_DEFEXEC
+      into L_CNT;
+    close LC_DEFEXEC;
+  
+    if L_CNT = 0 then
+      return;
+    end if;
+  
+    open LC_EXECS;
+    loop
+      fetch LC_EXECS
+        into L_EXEC;
+      exit when LC_EXECS%notfound;
+      L_REC     := G_EMPTY_REC;
+      L_REC.S01 := L_EXEC.PERSON_CODE;
+      L_REC.S02 := STRCOMBINE(L_EXEC.AGNABBR,
+                              (STRCOMBINE(L_EXEC.POST_CODE,
+                                          L_EXEC.DIVISION_CODE,
+                                          ', ')),
+                              ' ');
+      pipe row(L_REC);
+    end loop;
+    close LC_EXECS;
   end;
 
 begin

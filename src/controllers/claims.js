@@ -263,8 +263,61 @@ async function doClaimUpdate (
   }
 }
 
-async function doClaimInsert (
+async function doClaimStatus (
   socket, {
+    sessionID,
+    cId,
+    cType,
+    cStatus,
+    cSendTo,
+    cNoteHeader,
+    cNote,
+    cPriority,
+    cRelTo,
+    cBldTo
+  }) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    begin
+      UDO_PKG_CLAIMS.CLAIM_CHANGE_STATE(
+        NRN            => :NRN,
+        SEVENT_TYPE    => :SEVENT_TYPE,
+        SEVENT_STAT    => :SEVENT_STAT,
+        SSEND_CLIENT   => null,
+        SSEND_DIVISION => null,
+        SSEND_POST     => null,
+        SSEND_PERFORM  => null,
+        SSEND_PERSON   => :SSEND_PERSON,
+        SNOTE_HEADER   => :SNOTE_HEADER,
+        SNOTE          => :SNOTE,
+        NPRIORITY      => :NPRIORITY,
+        SREL_TO        => :SREL_TO,
+        SBUILD_TO      => :SBUILD_TO
+      );
+    end;`
+  const params = db.createParams()
+  params.add('NRN').dirIn().typeNumber().val(cId)
+  params.add('SEVENT_TYPE').dirIn().typeString().val(cType)
+  params.add('SEVENT_STAT').dirIn().typeString().val(cStatus)
+  params.add('SSEND_PERSON').dirIn().typeString().val(cSendTo)
+  params.add('SNOTE_HEADER').dirIn().typeString().val(cNoteHeader)
+  params.add('SNOTE').dirIn().typeString().val(cNote)
+  params.add('NPRIORITY').dirIn().typeNumber().val(cPriority)
+  params.add('SREL_TO').dirIn().typeString().val(cRelTo)
+  params.add('SBUILD_TO').dirIn().typeString().val(cBldTo)
+  try {
+    const res = (await db.execute(sessionID, sql, params))
+    socket.emit('claim_status_done',{id: cId})
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
+async function doClaimInsert ( socket, {
     sessionID,
     cType,
     cPriority,
@@ -323,6 +376,51 @@ async function doClaimInsert (
   }
 }
 
+async function getClaimNextPoints (socket, {sessionID, id}) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    select 
+      S01 as "statCode",
+      N01 as "statId",
+      N02 as "statType"
+    from table(UDO_PACKAGE_NODEWEB_IFACE.GET_NEXTPOINTS(:NRN))
+  `
+  const params = db.createParams()
+  params.add('NRN').dirIn().typeNumber().val(id)
+  try {
+    const res = await db.execute(sessionID, sql, params)
+    socket.emit('claim_next_points_got', {points: res.rows})
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
+
+async function getClaimNextExecutors (socket, {sessionID, id, pointId}) {
+  if (!sessionID) {
+    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
+    return
+  }
+  const sql = `
+    select 
+      S01 as "value",
+      S02 as "label"
+    from table(UDO_PACKAGE_NODEWEB_IFACE.GET_NEXTPOINT_EXECUTORS(:NRN, :NPOINT))
+  `
+  const params = db.createParams()
+  params.add('NRN').dirIn().typeNumber().val(id)
+  params.add('NPOINT').dirIn().typeNumber().val(pointId)
+  try {
+    const res = await db.execute(sessionID, sql, params)
+    socket.emit('claim_next_execs_got', {executors: res.rows})
+  }
+  catch (e) {
+    routine.emitExecutionError(e, socket)
+  }
+}
 
 claims.init = socket => {
   socket.on('get_claim_list', (data) => {
@@ -333,6 +431,12 @@ claims.init = socket => {
   })
   socket.on('get_claim_history', (pl) => {
     void getClaimHistory(socket, pl)
+  })
+  socket.on('get_claim_next_points', (pl) => {
+    void getClaimNextPoints(socket, pl)
+  })
+  socket.on('get_claim_next_execs', (pl) => {
+    void getClaimNextExecutors(socket, pl)
   })
   socket.on('get_claim_avail_actions', (pl) => {
     void getClaimAvailableActions(socket, pl)
@@ -345,6 +449,9 @@ claims.init = socket => {
   })
   socket.on('do_claim_update', (pl) => {
     void doClaimUpdate(socket, pl)
+  })
+  socket.on('do_claim_status', (pl) => {
+    void doClaimStatus(socket, pl)
   })
   socket.on('do_claim_insert', (pl) => {
     void doClaimInsert(socket, pl)
