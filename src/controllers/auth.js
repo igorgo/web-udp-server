@@ -17,6 +17,7 @@ async function login(socket, { user, pass }) {
     res.isPmo = env['outBinds']['IS_PMO']
     sessions.set(res.sessionID, sessions.keys.IS_PMO, res.isPmo)
     sessions.set(res.sessionID, sessions.keys.FULL_NAME, res.userFullName)
+    sessions.set(res.sessionID, sessions.keys.NCOMPANY, res.nCompany)
     socket.emit('authorized', res)
     void userData.getAllUserData(socket, res.sessionID)
     void sessionStatic.getAllUnits(socket, res.sessionID)
