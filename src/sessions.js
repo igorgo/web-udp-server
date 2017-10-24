@@ -7,7 +7,11 @@ sessions.set = (id ,key, value) => {
 }
 
 sessions.get = (id ,key, defaultValue = null) => {
-  _.get(sessions, [id, key] , defaultValue)
+  let r = null
+  let {[id]: s} = sessions
+  if (s) ({[key]: r} = s)
+  return r ? r : defaultValue
+  // _.get(sessions, [id, key] , defaultValue)
 }
 
 sessions.start = (id) => {

@@ -439,12 +439,12 @@ async function getClaimRetMessage (socket, {sessionID, id}) {
     end;`
   const params = db.createParams()
   params.add('NRN').dirIn().typeNumber().val(id)
-  params.add('NCOMPANY').dirIn().typeNumber().val(sessions.get(sessionID, sessions.keys.NCOMPANY))
+  params.add('NCOMPANY').dirIn().typeNumber().val(sessions.get(sessionID, 'NCOMPANY'))
   params.add('NPOINT_OUT').dirOut().typeNumber()
   params.add('SCOMMENTRY').dirOut().typeString(1000)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_ret_message_got',{id: res.outBinds['SCOMMENTRY']})
+    socket.emit('claim_ret_message_got',{message: res.outBinds['SCOMMENTRY']})
   }
   catch (e) {
     routine.emitExecutionError(e, socket)
