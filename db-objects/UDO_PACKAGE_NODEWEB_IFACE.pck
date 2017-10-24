@@ -264,15 +264,17 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     N      binary_integer;
     RETSTR PKG_STD.TSQL;
     CSTR   PKG_STD.TSTRING;
+		LSTR   PKG_STD.TSTRING;
   begin
-    N := STRCNT(STR,
+    LSTR := replace(STR,'''', '''''');
+		N := STRCNT(LSTR,
                 DELIM);
     if N > 1 then
       RETSTR := '';
       K      := 0;
       loop
         K    := K + 1;
-        CSTR := trim(STRTOK(STR,
+        CSTR := trim(STRTOK(LSTR,
                             DELIM,
                             K));
         if CSTR is not null then
@@ -288,8 +290,8 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
         return ' IS NULL ';
       end if;
     else
-      if STR is not null then
-        return ' = ''' || STR || ''' ';
+      if LSTR is not null then
+        return ' = ''' || LSTR || ''' ';
       else
         return ' IS NULL ';
       end if;
