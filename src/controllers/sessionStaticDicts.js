@@ -4,32 +4,41 @@ const staticDicts = module.exports
 const log = require('../logger')
 const db = require('../db')
 const _ = require('lodash')
+const {
+  sockOk,
+  SE_STATDICT_ALL_UNITS,
+  SE_STATDICT_ALL_APPS,
+  SE_STATDICT_ALL_BUILDS,
+  SE_STATDICT_ALL_PERSONS,
+  SE_APPS_BY_UNIT,
+  SE_UNITFUNCS_BY_UNIT
+} = require('../socket-events')
 
-staticDicts.getAllUnits = async (socket, sessionID) => {
+staticDicts.getAllUnits = async (socket, {sessionID}) => {
   try {
     const res = await db.execute(sessionID, `
 select S01 as UNITNAME
   from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_UNITS)
     `)
-    socket.emit('all_unitnames_loaded', res.rows)
+    socket.emit(sockOk(SE_STATDICT_ALL_UNITS), {units: res.rows} )
   } catch (e) {
     log.error(e)
   }
 }
 
-staticDicts.getAllApps = async (socket, sessionID) => {
+staticDicts.getAllApps = async (socket, {sessionID}) => {
   try {
     const res = await db.execute(sessionID, `
 select S01 as APPNAME
   from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_APPS)
     `)
-    socket.emit('all_appnames_loaded', res.rows)
+    socket.emit(sockOk(SE_STATDICT_ALL_APPS), {apps: res.rows})
   } catch (e) {
     log.error(e)
   }
 }
 
-staticDicts.getAllBuilds = async (socket, sessionID) => {
+staticDicts.getAllBuilds = async (socket, {sessionID}) => {
   try {
     const res = await db.execute(sessionID, `
 select S01 as VERSION,
@@ -74,13 +83,13 @@ select S01 as VERSION,
         })
       }
     })
-    socket.emit('all_builds_loaded', result)
+    socket.emit(sockOk(SE_STATDICT_ALL_BUILDS), {builds: result})
   } catch (e) {
     log.error(e)
   }
 }
 
-staticDicts.getAllPersons = async (socket, sessionID) => {
+staticDicts.getAllPersons = async (socket, {sessionID}) => {
   const sql = `
     select
         S01 as "label",
@@ -89,7 +98,7 @@ staticDicts.getAllPersons = async (socket, sessionID) => {
   `
   try {
     const res = await db.execute(sessionID, sql)
-    socket.emit('all_persons_loaded', res.rows)
+    socket.emit(sockOk(SE_STATDICT_ALL_PERSONS), {persons: res.rows})
   } catch (e) {
     log.error(e)
   }
@@ -105,7 +114,7 @@ async function getAppsByUnits (socket, { sessionID, units }) {
   params.add('UNITS').dirIn().typeString().val(units)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('apps_by_unit_got', res.rows)
+    socket.emit(sockOk(SE_APPS_BY_UNIT), {apps: res.rows})
   } catch (e) {
     log.error(e)
   }
@@ -121,17 +130,17 @@ async function getFuncsByUnits (socket, { sessionID, units }) {
   params.add('UNITS').dirIn().typeString().val(units)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('funcs_by_unit_got', res.rows)
+    socket.emit(sockOk(SE_UNITFUNCS_BY_UNIT), {unitfuncs:res.rows})
   } catch (e) {
     log.error(e)
   }
 }
 
 staticDicts.init = socket => {
-  socket.on('get_apps_by_unit', (pl) => {
+  socket.on(SE_APPS_BY_UNIT, (pl) => {
     void staticDicts.getAppsByUnits(socket, pl)
   })
-  socket.on('get_funcs_by_unit', (pl) => {
+  socket.on(SE_UNITFUNCS_BY_UNIT, (pl) => {
     void staticDicts.getFuncsByUnits(socket, pl)
   })
 }

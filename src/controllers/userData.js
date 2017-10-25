@@ -2,9 +2,20 @@
 
 const log = require('../logger')
 const db = require('../db')
+const {sockOk, SE_USER_DATA_LOAD} = require('../socket-events')
 const userData = module.exports
 
-userData.getAllUserData = async (socket, sessionID) => {
+userData.init = socket => {
+  socket.on(SE_USER_DATA_LOAD, (pl) => {
+    void getAllUserData(socket, pl)
+  })
+  socket.on('set_user_data_param', (d) => {
+    void setUserDataParam(d)
+  })
+}
+
+
+userData.getAllUserData = async (socket, {sessionID}) => {
   try {
     const res = await db.execute(sessionID, `
 select S02 as PARAM_NAME,
@@ -13,7 +24,7 @@ select S02 as PARAM_NAME,
        D01 as DAT_VAL
   from table(UDO_PACKAGE_NODEWEB_IFACE.GET_USERDATA)
     `)
-    socket.emit('user_data_loaded', res.rows)
+    socket.emit(sockOk(SE_USER_DATA_LOAD), {userData: res.rows})
   } catch (e) {
     log.error(e)
   }
@@ -54,8 +65,3 @@ async function setUserDataParam({sessionID, param, dataType, value}) {
     }
 }
 
-userData.init = socket => {
-  socket.on('set_user_data_param', (d) => {
-    void setUserDataParam(d)
-  })
-}

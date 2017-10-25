@@ -2,32 +2,41 @@
 
 const m = require('../messages')
 const db = require('../db')
-const routine = require('./routine')
+const {checkSession, emitExecutionError} = require('./routine')
 // const log = require('../logger')
-const {getClaimFiles} = require('./linkFiles')
+const { getClaimFiles } = require('./linkFiles')
 const sessions = require('../sessions')
+const {
+  sockOk,
+  SE_CLAIMS_FIND,
+  SE_CLAIMS_FIND_ONE,
+  SE_CLAIMS_HISTORY_FIND,
+  SE_CLAIMS_NEXTPOINTS_FIND,
+  SE_CLAIMS_NEXTEXECS_FIND,
+  SE_CLAIMS_AVAIL_ACTIONS_FIND,
+  SE_CLAIMS_DELETE,
+  SE_CLAIMS_ANNUL,
+  SE_CLAIMS_UPDATE,
+  SE_CLAIMS_SET_STATUS,
+  SE_CLAIMS_INSERT,
+  SE_CLAIMS_RETURN,
+  SE_CLAIMS_RETURN_MESSAGE
+} = require('../socket-events')
 
 const claims = module.exports
 
-async function getClaimList (socket, {
-  sessionID,
-  conditionId = null,
-  sortOrder = null,
-  page = 1,
-  limit = 25,
-  newClaimId = null
-}) {
-  if (sessionID) {
-    const params = db.createParams()
-    params.add('A_COND').dirIn().typeNumber().val(conditionId)
-    params.add('A_SORT').dirIn().typeString().val(sortOrder)
-    params.add('A_OFFSET').dirIn().typeNumber().val(page - 1)
-    params.add('A_LIMIT').dirIn().typeNumber().val(limit)
-    params.add('A_NEW_RN').dirIn().typeNumber().val(newClaimId)
+async function getClaimList (socket, { sessionID, conditionId = null, sortOrder = null, page = 1, limit = 25, newClaimId = null }) {
+  if (!checkSession(socket, sessionID)) return
+  const params = db.createParams()
+  params.add('A_COND').dirIn().typeNumber().val(conditionId)
+  params.add('A_SORT').dirIn().typeString().val(sortOrder)
+  params.add('A_OFFSET').dirIn().typeNumber().val(page - 1)
+  params.add('A_LIMIT').dirIn().typeNumber().val(limit)
+  params.add('A_NEW_RN').dirIn().typeNumber().val(newClaimId)
+  try {
+    const conn = await db.getConnection(sessionID)
     try {
-      const conn = await db.getConnection(sessionID)
-      try {
-        const res = await db.execute(sessionID, `
+      const res = await db.execute(sessionID, `
       select N01 as "id",
              N02 as "claimType",
              N03 as "hasReleaseTo",
@@ -54,38 +63,32 @@ async function getClaimList (socket, {
           :A_LIMIT,
           :A_NEW_RN
          ))`, params, {}, conn)
-        const response = {}
-        let allCnt = 0
-        const rows = res.rows
-        if (rows) {
-          response.claims = rows.map(rec => {
-            let record
-            ({allCnt, ...record} = rec)
-            return record
-          })
-          response.allCnt = allCnt
-          response.page = page
-          response.limit = limit
-        }
-        socket.emit('claim_list', response)
-        await db.execute(sessionID, 'begin UDO_PACKAGE_NODEWEB_IFACE.CLEAR_CONDS; end;', [], {}, conn)
+      const response = {}
+      let allCnt = 0
+      const rows = res.rows
+      if (rows) {
+        response.claims = rows.map(rec => {
+          let record
+          ({ allCnt, ...record } = rec)
+          return record
+        })
+        response.allCnt = allCnt
+        response.page = page
+        response.limit = limit
       }
-      finally {
-        conn.close()
-      }
-    } catch (e) {
-      routine.emitExecutionError(e, socket)
+      socket.emit(sockOk(SE_CLAIMS_FIND), {claims: response})
+      await db.execute(sessionID, 'begin UDO_PACKAGE_NODEWEB_IFACE.CLEAR_CONDS; end;', [], {}, conn)
     }
+    finally {
+      conn.close()
+    }
+  } catch (e) {
+    emitExecutionError(e, socket)
   }
-  else
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
 }
 
-async function getClaimRecord (socket, {sessionID, id}) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function getClaimRecord (socket, { sessionID, id }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     select trim(S01) as "claimPrefix",
            trim(S02) as "claimNumber",
@@ -117,45 +120,40 @@ async function getClaimRecord (socket, {sessionID, id}) {
   params.add('RN').dirIn().typeNumber().val(id)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_record_got', res.rows.length ? res.rows[0] : {id: null})
-    void getClaimHistory (socket, { sessionID, id })
-    void getClaimFiles (socket, { sessionID, id })
-    void getClaimAvailableActions (socket, { sessionID, id })
+    socket.emit(sockOk(SE_CLAIMS_FIND_ONE), {claim: res.rows.length ? res.rows[0] : { id: null }})
+    void getClaimHistory(socket, { sessionID, id })
+    void getClaimFiles(socket, { sessionID, id })
+    void getClaimAvailableActions(socket, { sessionID, id })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
 async function getClaimHistory (socket, { sessionID, id }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     select D01 as "date",
            S03 as "who",
            S04 as "newStatus",
            S05 as "newExecutor",
-           S06 as "comment"
+           S06 as "comment",
+           N02 as "noteId"
       from table(UDO_PACKAGE_NODEWEB_IFACE.CLAIM_HISTORY(:RN))  
   `
   const params = db.createParams()
   params.add('RN').dirIn().typeNumber().val(id)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_history_got', {history: res.rows})
+    socket.emit(sockOk(SE_CLAIMS_HISTORY_FIND), { history: res.rows })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
 async function getClaimAvailableActions (socket, { sessionID, id }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PACKAGE_NODEWEB_IFACE.GET_AVAIL_ACTIONS(
@@ -168,18 +166,15 @@ async function getClaimAvailableActions (socket, { sessionID, id }) {
   params.add('NACTIONMASK').dirOut().typeNumber()
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_avail_actions_got', {id, actionsMask: res.outBinds['NACTIONMASK']})
+    socket.emit(sockOk(SE_CLAIMS_AVAIL_ACTIONS_FIND), { id, actionsMask: res.outBinds['NACTIONMASK'] })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function doClaimDelete (socket, {sessionID, id}) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function doClaimDelete (socket, { sessionID, id }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PKG_CLAIMS.CLAIM_DELETE(NRN => :NRN);
@@ -188,18 +183,15 @@ async function doClaimDelete (socket, {sessionID, id}) {
   params.add('NRN').dirIn().typeNumber().val(id)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_delete_done')
+    socket.emit(sockOk(SE_CLAIMS_DELETE))
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function doClaimAnnull (socket, {sessionID, id}) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function doClaimAnnull (socket, { sessionID, id }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PKG_CLAIMS.CLAIM_CLOSE(NRN => :NRN);
@@ -208,29 +200,15 @@ async function doClaimAnnull (socket, {sessionID, id}) {
   params.add('NRN').dirIn().typeNumber().val(id)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_annull_done')
+    socket.emit(sockOk(SE_CLAIMS_ANNUL))
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function doClaimUpdate (
-  socket, {
-    sessionID,
-    cId,
-    cContent,
-    cRelFrom,
-    cBldFrom,
-    cRelTo,
-    cApp,
-    cUnit,
-    cFunc,
-  }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function doClaimUpdate (socket, { sessionID, cId, cContent, cRelFrom, cBldFrom, cRelTo, cApp, cUnit, cFunc }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PKG_CLAIMS.CLAIM_UPDATE(
@@ -257,30 +235,15 @@ async function doClaimUpdate (
   params.add('SUNITFUNC').dirIn().typeString().val(cFunc)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_update_done',{id: cId})
+    socket.emit(sockOk(SE_CLAIMS_UPDATE), { id: cId })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function doClaimStatus (
-  socket, {
-    sessionID,
-    cId,
-    cType,
-    cStatus,
-    cSendTo,
-    cNoteHeader,
-    cNote,
-    cPriority,
-    cRelTo,
-    cBldTo
-  }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function doClaimStatus (socket, { sessionID, cId, cType, cStatus, cSendTo, cNoteHeader, cNote, cPriority, cRelTo, cBldTo }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PKG_CLAIMS.CLAIM_CHANGE_STATE(
@@ -311,26 +274,15 @@ async function doClaimStatus (
   params.add('SBUILD_TO').dirIn().typeString().val(cBldTo)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_status_done',{id: cId})
+    socket.emit(sockOk(SE_CLAIMS_SET_STATUS), { id: cId })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
-async function doClaimSend (
-  socket, {
-    sessionID,
-    cId,
-    cType,
-    cStatus,
-    cSendTo,
-    cNoteHeader,
-    cNote
-  }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+
+async function doClaimSend (socket, { sessionID, cId, cType, cStatus, cSendTo, cNoteHeader, cNote }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PKG_CLAIMS.CLAIM_DO_SEND(
@@ -355,31 +307,15 @@ async function doClaimSend (
   params.add('SNOTE').dirIn().typeString().val(cNote)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_send_done',{id: cId})
+    socket.emit('claim_send_done', { id: cId })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function doClaimInsert ( socket, {
-    sessionID,
-    cType,
-    cPriority,
-    cSend,
-    cInit,
-    cApp,
-    cUnit,
-    cFunc,
-    cContent,
-    cRelFrom,
-    cBldFrom,
-    cRelTo
-  }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function doClaimInsert (socket, { sessionID, cType, cPriority, cSend, cInit, cApp, cUnit, cFunc, cContent, cRelFrom, cBldFrom, cRelTo }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PKG_CLAIMS.CLAIM_INSERT(
@@ -414,18 +350,15 @@ async function doClaimInsert ( socket, {
   params.add('NRN').dirOut().typeNumber()
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_insert_done',{id: res.outBinds['NRN']})
+    socket.emit(sockOk(SE_CLAIMS_INSERT), { id: res.outBinds['NRN'] })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function getClaimNextPoints (socket, {sessionID, id}) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function getClaimNextPoints (socket, { sessionID, id }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     select 
       S01 as "statCode",
@@ -437,18 +370,15 @@ async function getClaimNextPoints (socket, {sessionID, id}) {
   params.add('NRN').dirIn().typeNumber().val(id)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_next_points_got', {points: res.rows})
+    socket.emit(sockOk(SE_CLAIMS_NEXTPOINTS_FIND), { points: res.rows })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function getClaimNextExecutors (socket, {sessionID, id, pointId}) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function getClaimNextExecutors (socket, { sessionID, id, pointId }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     select 
       S01 as "value",
@@ -460,18 +390,15 @@ async function getClaimNextExecutors (socket, {sessionID, id, pointId}) {
   params.add('NPOINT').dirIn().typeNumber().val(pointId)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_next_execs_got', {executors: res.rows})
+    socket.emit(sockOk(SE_CLAIMS_NEXTEXECS_FIND), { executors: res.rows })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function getClaimCurrentExecutors (socket, {sessionID, id}) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function getClaimCurrentExecutors (socket, { sessionID, id }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     select 
       S01 as "value",
@@ -482,18 +409,14 @@ async function getClaimCurrentExecutors (socket, {sessionID, id}) {
   params.add('NRN').dirIn().typeNumber().val(id)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_curr_execs_got', {executors: res.rows})
+    socket.emit('claim_curr_execs_got', { executors: res.rows })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function getClaimRetMessage (socket, {sessionID, id}) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function getClaimRetMessage (socket, { sessionID, id }) {
   const sql = `
     begin
       FIND_CLNEVENTS_RETPOINT(
@@ -510,18 +433,15 @@ async function getClaimRetMessage (socket, {sessionID, id}) {
   params.add('SCOMMENTRY').dirOut().typeString(1000)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_ret_message_got',{message: res.outBinds['SCOMMENTRY']})
+    socket.emit(sockOk(SE_CLAIMS_RETURN_MESSAGE), { message: res.outBinds['SCOMMENTRY'] })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
-async function doClaimReturn (socket, {sessionID, cId, cNoteHeader, cNote}) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+async function doClaimReturn (socket, { sessionID, cId, cNoteHeader, cNote }) {
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PKG_CLAIMS.CLAIM_RETURN(
@@ -536,58 +456,58 @@ async function doClaimReturn (socket, {sessionID, cId, cNoteHeader, cNote}) {
   params.add('SNOTE').dirIn().typeString().val(cNote)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_return_done',{id: cId})
+    socket.emit(sockOk(SE_CLAIMS_RETURN), { id: cId })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
 claims.init = socket => {
-  socket.on('get_claim_list', (data) => {
+  socket.on(SE_CLAIMS_FIND, (data) => {
     void getClaimList(socket, data)
   })
-  socket.on('get_claim_record', (pl) => {
+  socket.on(SE_CLAIMS_FIND_ONE, (pl) => {
     void getClaimRecord(socket, pl)
   })
-  socket.on('get_claim_history', (pl) => {
+  socket.on(SE_CLAIMS_HISTORY_FIND, (pl) => {
     void getClaimHistory(socket, pl)
   })
-  socket.on('get_claim_next_points', (pl) => {
+  socket.on(SE_CLAIMS_NEXTPOINTS_FIND, (pl) => {
     void getClaimNextPoints(socket, pl)
   })
-  socket.on('get_claim_next_execs', (pl) => {
+  socket.on(SE_CLAIMS_NEXTEXECS_FIND, (pl) => {
     void getClaimNextExecutors(socket, pl)
   })
-  socket.on('get_claim_avail_actions', (pl) => {
+  socket.on(SE_CLAIMS_AVAIL_ACTIONS_FIND, (pl) => {
     void getClaimAvailableActions(socket, pl)
   })
-  socket.on('do_claim_delete', (pl) => {
+  socket.on(SE_CLAIMS_DELETE, (pl) => {
     void doClaimDelete(socket, pl)
   })
-  socket.on('do_claim_annull', (pl) => {
+  socket.on(SE_CLAIMS_ANNUL, (pl) => {
     void doClaimAnnull(socket, pl)
   })
-  socket.on('do_claim_update', (pl) => {
+  socket.on(SE_CLAIMS_UPDATE, (pl) => {
     void doClaimUpdate(socket, pl)
   })
-  socket.on('do_claim_status', (pl) => {
+  socket.on(SE_CLAIMS_SET_STATUS, (pl) => {
     void doClaimStatus(socket, pl)
   })
-  socket.on('do_claim_insert', (pl) => {
+  socket.on(SE_CLAIMS_INSERT, (pl) => {
     void doClaimInsert(socket, pl)
   })
-  socket.on('do_claim_return', (pl) => {
+  socket.on(SE_CLAIMS_RETURN, (pl) => {
     void doClaimReturn(socket, pl)
   })
-  socket.on('get_claim_ret_message', (pl) => {
+  socket.on(SE_CLAIMS_RETURN_MESSAGE, (pl) => {
     void getClaimRetMessage(socket, pl)
   })
+  // todo
   socket.on('do_claim_send', (pl) => {
     void doClaimSend(socket, pl)
   })
   socket.on('get_claim_cur_execs', (pl) => {
     void getClaimCurrentExecutors(socket, pl)
   })
-
 }

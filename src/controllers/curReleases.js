@@ -1,6 +1,6 @@
 const db = require('../db')
 const routine = require('./routine')
-
+const {sockOk, SE_PUB_CURRENT_RELEASES} = require('../socket-events')
 const mod = module.exports
 
 async function getReleases (socket) {
@@ -15,14 +15,14 @@ select S01 as RELNAME,
        N02 as CLOSED
   from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CURRENT_RELEASES)
     `)
-    socket.emit('set_cur_releases', res.rows)
+    socket.emit(sockOk(SE_PUB_CURRENT_RELEASES), {releases: res.rows})
   } catch(e) {
     routine.emitExecutionError(e,socket)
   }
 }
 
 mod.init = socket => {
-  socket.on('get_cur_releases', () => {
+  socket.on(SE_PUB_CURRENT_RELEASES, () => {
     void getReleases(socket)
   })
 }

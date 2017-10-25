@@ -12,6 +12,8 @@ const _ = require('lodash')
 const common = require('./common')
 const log = require('./logger')
 const crypto = require('crypto')
+const {MSG_DONT_AUTHORIZED} = require('./messages')
+const {emitExecutionError} = require('./controllers/routine')
 
 /**
  * Oracle Bind Parameter

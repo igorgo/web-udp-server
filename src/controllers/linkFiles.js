@@ -2,37 +2,38 @@
 
 const db = require('../db')
 const m = require('../messages')
-const routine = require('./routine')
+const {emitExecutionError, checkSession} = require('./routine')
+const {
+  sockOk,
+  SE_LINKFILES_FIND,
+  SE_LINKFILES_DOWNLOAD,
+  SE_LINKFILES_UPLOAD
+} = require('../socket-events')
 
 const linkFiles = module.exports
 
 async function getClaimFiles (socket, {sessionID, id }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     select S01 as "path",
            N01 as "id",
-           N02 as "sizeBite"
+           N02 as "sizeBite",
+		   N03 as "own"
       from table(UDO_PACKAGE_NODEWEB_IFACE.GET_CLAIM_FILES(:RN))  
   `
   const params = db.createParams()
   params.add('RN').dirIn().typeNumber().val(id)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_files_got', {files: res.rows})
+    socket.emit(sockOk(SE_LINKFILES_FIND), {files: res.rows})
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
 async function getLinkedFile (socket, { sessionID, id }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+  if (!checkSession(socket, sessionID)) return
   const sql = `
      begin
        UDO_PACKAGE_NODEWEB_IFACE.GET_LINKED_DOC(
@@ -56,7 +57,7 @@ async function getLinkedFile (socket, { sessionID, id }) {
     const file = res.outBinds['DOCDATA']
     if (file === null) {
       conn.close()
-      routine.emitExecutionError(new Error(m.MSG_READ_FILE_ERROR), socket)
+      emitExecutionError(new Error(m.MSG_READ_FILE_ERROR), socket)
       return
     }
     let chunks = []
@@ -65,7 +66,7 @@ async function getLinkedFile (socket, { sessionID, id }) {
     })
     file.on('close', () => {
       const buf = Buffer.concat(chunks)
-      socket.emit('linked_file_got', {
+      socket.emit(sockOk(SE_LINKFILES_DOWNLOAD), {
         fileData: new Uint8Array(buf).buffer,
         fileName: res.outBinds['FILENAME'],
         fileSize: res.outBinds['FILESIZE'],
@@ -75,15 +76,12 @@ async function getLinkedFile (socket, { sessionID, id }) {
     })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
 async function actClaimAttachFile (socket, { sessionID, id, filename, content }) {
-  if (!sessionID) {
-    socket.emit('unauthorized', { message: m.MSG_DONT_AUTHORIZED })
-    return
-  }
+  if (!checkSession(socket, sessionID)) return
   const sql = `
     begin
       UDO_PACKAGE_NODEWEB_IFACE.ACT_ADD_DOC(
@@ -99,21 +97,21 @@ async function actClaimAttachFile (socket, { sessionID, id, filename, content })
   params.add('FILE').dirIn().typeBuffer().val(content)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_file_attached', { id, filename })
+    socket.emit(sockOk(SE_LINKFILES_UPLOAD), { id, filename })
   }
   catch (e) {
-    routine.emitExecutionError(e, socket)
+    emitExecutionError(e, socket)
   }
 }
 
 linkFiles.init = socket => {
-  socket.on('get_linked_file', (data) => {
+  socket.on(SE_LINKFILES_DOWNLOAD, (data) => {
     void getLinkedFile(socket, data)
   })
-  socket.on('get_claim_files', (pl) => {
+  socket.on(SE_LINKFILES_FIND, (pl) => {
     void getClaimFiles(socket, pl)
   })
-  socket.on('act_claim_attach_file', (pl) => {
+  socket.on(SE_LINKFILES_UPLOAD, (pl) => {
     void actClaimAttachFile(socket, pl)
   })
 }

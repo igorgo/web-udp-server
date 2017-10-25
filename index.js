@@ -1,5 +1,9 @@
 'use strict'
 
+global.rootRequire = function(name) {
+  return require(__dirname + '/' + name);
+}
+
 // const cluster = require('cluster')
 // const numCPUs = require('os').cpus().length
 const path = require('path')
