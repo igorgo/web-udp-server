@@ -2,14 +2,14 @@
 
 const log = require('../logger')
 const db = require('../db')
-const {sockOk, SE_USER_DATA_LOAD} = require('../socket-events')
+const {sockOk, SE_USER_DATA_LOAD, SE_USER_DATA_SAVE_PARAM} = require('../socket-events')
 const userData = module.exports
 
 userData.init = socket => {
   socket.on(SE_USER_DATA_LOAD, (pl) => {
     void getAllUserData(socket, pl)
   })
-  socket.on('set_user_data_param', (d) => {
+  socket.on(SE_USER_DATA_SAVE_PARAM, (d) => {
     void setUserDataParam(d)
   })
 }

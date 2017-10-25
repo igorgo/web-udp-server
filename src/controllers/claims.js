@@ -20,7 +20,9 @@ const {
   SE_CLAIMS_SET_STATUS,
   SE_CLAIMS_INSERT,
   SE_CLAIMS_RETURN,
-  SE_CLAIMS_RETURN_MESSAGE
+  SE_CLAIMS_RETURN_MESSAGE,
+  SE_CLAIMS_SEND,
+  SE_CLAIMS_CURREXECS_FIND
 } = require('../socket-events')
 
 const claims = module.exports
@@ -307,7 +309,7 @@ async function doClaimSend (socket, { sessionID, cId, cType, cStatus, cSendTo, c
   params.add('SNOTE').dirIn().typeString().val(cNote)
   try {
     const res = (await db.execute(sessionID, sql, params))
-    socket.emit('claim_send_done', { id: cId })
+    socket.emit(sockOk(SE_CLAIMS_SEND), { id: cId })
   }
   catch (e) {
     emitExecutionError(e, socket)
@@ -409,7 +411,7 @@ async function getClaimCurrentExecutors (socket, { sessionID, id }) {
   params.add('NRN').dirIn().typeNumber().val(id)
   try {
     const res = await db.execute(sessionID, sql, params)
-    socket.emit('claim_curr_execs_got', { executors: res.rows })
+    socket.emit(sockOk(SE_CLAIMS_CURREXECS_FIND), { executors: res.rows })
   }
   catch (e) {
     emitExecutionError(e, socket)
@@ -503,11 +505,10 @@ claims.init = socket => {
   socket.on(SE_CLAIMS_RETURN_MESSAGE, (pl) => {
     void getClaimRetMessage(socket, pl)
   })
-  // todo
-  socket.on('do_claim_send', (pl) => {
+  socket.on(SE_CLAIMS_SEND, (pl) => {
     void doClaimSend(socket, pl)
   })
-  socket.on('get_claim_cur_execs', (pl) => {
+  socket.on(SE_CLAIMS_CURREXECS_FIND, (pl) => {
     void getClaimCurrentExecutors(socket, pl)
   })
 }
