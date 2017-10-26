@@ -22,7 +22,10 @@ const {
   SE_CLAIMS_RETURN,
   SE_CLAIMS_RETURN_MESSAGE,
   SE_CLAIMS_SEND,
-  SE_CLAIMS_CURREXECS_FIND
+  SE_CLAIMS_CURREXECS_FIND,
+  SE_CLAIMS_NOTE_INSERT,
+  SE_CLAIMS_NOTE_UPDATE,
+  SE_CLAIMS_NOTE_FIND_ONE
 } = require('../socket-events')
 
 const claims = module.exports
@@ -465,6 +468,29 @@ async function doClaimReturn (socket, { sessionID, cId, cNoteHeader, cNote }) {
   }
 }
 
+async function doClaimNoteInsert (socket, { sessionID, cId, cNoteHeader, cNote }) {
+  if (!checkSession(socket, sessionID)) return
+  const sql=`
+    begin
+      UDO_PACKAGE_NODEWEB_IFACE.ACT_ADD_NOTE(
+        P_RN => :P_RN,
+        P_NOTE_HEADER => :P_NOTE_HEADER,
+        P_NOTE => :P_NOTE
+      );
+    end;`
+  const params = db.createParams()
+  params.add('P_RN').dirIn().typeNumber().val(cId)
+  params.add('P_NOTE_HEADER').dirIn().typeString().val(cNoteHeader)
+  params.add('P_NOTE').dirIn().typeString().val(cNote)
+  try {
+    const res = (await db.execute(sessionID, sql, params))
+    socket.emit(sockOk(SE_CLAIMS_NOTE_INSERT), { id: cId })
+  }
+  catch (e) {
+    emitExecutionError(e, socket)
+  }
+}
+
 claims.init = socket => {
   socket.on(SE_CLAIMS_FIND, (data) => {
     void getClaimList(socket, data)
@@ -510,5 +536,54 @@ claims.init = socket => {
   })
   socket.on(SE_CLAIMS_CURREXECS_FIND, (pl) => {
     void getClaimCurrentExecutors(socket, pl)
+  })
+  socket.on(SE_CLAIMS_NOTE_INSERT, (pl) => {
+    void doClaimNoteInsert(socket, pl)
+  })
+  socket.on(SE_CLAIMS_NOTE_UPDATE, async ({sessionID, id, note}) => {
+    if (!checkSession(socket, sessionID)) return
+    const sql=`
+      begin
+        UDO_PACKAGE_NODEWEB_IFACE.ACT_EDIT_NOTE(
+          P_RN => :P_RN,
+          P_NOTE => :P_NOTE
+        );
+      end;`
+    const params = db.createParams()
+    params.add('P_RN').dirIn().typeNumber().val(id)
+    params.add('P_NOTE').dirIn().typeString().val(note)
+    try {
+      const res = (await db.execute(sessionID, sql, params))
+      socket.emit(sockOk(SE_CLAIMS_NOTE_UPDATE), {id})
+    }
+    catch (e) {
+      emitExecutionError(e, socket)
+    }
+  })
+  socket.on(SE_CLAIMS_NOTE_FIND_ONE, async ({sessionID, id}) => {
+    if (!checkSession(socket, sessionID)) return
+    const sql=`
+      begin
+        UDO_PACKAGE_NODEWEB_IFACE.GET_NOTE_ATTR(
+          P_RN => :P_RN,
+          P_NOTE_HEADER => :P_NOTE_HEADER,
+          P_NOTE => :P_NOTE
+        );
+      end;`
+    const params = db.createParams()
+    params.add('P_RN').dirIn().typeNumber().val(id)
+    params.add('P_NOTE_HEADER').dirOut().typeString(40)
+    params.add('P_NOTE').dirOut().typeString(4000)
+    try {
+      const res = (await db.execute(sessionID, sql, params))
+      socket.emit(sockOk(SE_CLAIMS_NOTE_FIND_ONE), {
+        id,
+        header: res.outBinds['P_NOTE_HEADER'],
+        note: res.outBinds['P_NOTE'],
+      })
+    }
+    catch (e) {
+      emitExecutionError(e, socket)
+    }
   })
 }
