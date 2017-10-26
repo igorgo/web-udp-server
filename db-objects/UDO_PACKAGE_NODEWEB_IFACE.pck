@@ -92,6 +92,7 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_RN            in out number,
     P_FILTER_NAME   out varchar2,
     P_CLAIM_NUMB    out varchar2,
+    P_CLAIM_TYPE    out varchar2,
     P_CLAIM_VERS    out varchar2,
     P_CLAIM_RELEASE out varchar2,
     P_CLAIM_BUILD   out varchar2,
@@ -118,6 +119,7 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_FILTER_RN     in number,
     P_FILTER_NAME   in varchar2,
     P_CLAIM_NUMB    in varchar2,
+    P_CLAIM_TYPE    in varchar2,
     P_CLAIM_VERS    in varchar2,
     P_CLAIM_RELEASE in varchar2,
     P_CLAIM_BUILD   in varchar2,
@@ -222,6 +224,32 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
   ) return T_MOB_REP
     pipelined;
 
+  function GET_OTHER_EXECUTORS(P_RN in number) return T_MOB_REP
+    pipelined;
+
+  procedure ACT_ADD_NOTE
+  (
+    P_RN          in number,
+    P_NOTE_HEADER in varchar2,
+    P_NOTE        in varchar2
+  );
+
+  procedure ACT_EDIT_NOTE
+  (
+    P_RN   in number,
+    P_NOTE in varchar2
+  );
+
+  procedure GET_NOTE_ATTR
+  (
+    P_RN          in number,
+    P_NOTE_HEADER out varchar2,
+    P_NOTE        out varchar2
+  );
+
+  function GET_ALL_STATUSES return T_MOB_REP
+    pipelined;
+
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
 create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
@@ -240,6 +268,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
   EVENT_TYPE_ADDON        constant number := 4412;
   EVENT_TYPE_REBUKE       constant number := 4424;
   EVENT_TYPE_ERROR        constant number := 4440;
+  EVENT_TYPE_CRN          constant number := 4269;
   PERS_SERV_CRN           constant number := 1647644;
   EVENTS_UNITCODE         constant UNITLIST.UNITCODE%type := 'ClientEvents';
   ALL_REL_APPS            constant varchar2(50) := 'Всі, що пов''язані з розділом';
@@ -264,11 +293,13 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     N      binary_integer;
     RETSTR PKG_STD.TSQL;
     CSTR   PKG_STD.TSTRING;
-		LSTR   PKG_STD.TSTRING;
+    LSTR   PKG_STD.TSTRING;
   begin
-    LSTR := replace(STR,'''', '''''');
-		N := STRCNT(LSTR,
-                DELIM);
+    LSTR := replace(STR,
+                    '''',
+                    '''''');
+    N    := STRCNT(LSTR,
+                   DELIM);
     if N > 1 then
       RETSTR := '';
       K      := 0;
@@ -689,6 +720,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     P_RN            in out number,
     P_FILTER_NAME   out varchar2,
     P_CLAIM_NUMB    out varchar2,
+		P_CLAIM_TYPE    out varchar2,
     P_CLAIM_VERS    out varchar2,
     P_CLAIM_RELEASE out varchar2,
     P_CLAIM_BUILD   out varchar2,
@@ -710,6 +742,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
                                             'APP_COND_NUMBER',
                                             P_CLAIM_NUMB);
+      UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
+                                            'APP_COND_TYPE',
+                                            P_CLAIM_TYPE);
       UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
                                             'APP_COND_VERSION',
                                             P_CLAIM_VERS);
@@ -808,6 +843,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     P_FILTER_RN     in number,
     P_FILTER_NAME   in varchar2,
     P_CLAIM_NUMB    in varchar2,
+    P_CLAIM_TYPE    in varchar2,
     P_CLAIM_VERS    in varchar2,
     P_CLAIM_RELEASE in varchar2,
     P_CLAIM_BUILD   in varchar2,
@@ -832,6 +868,8 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
   
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_NUMBER',
                                  P_VALUE => P_CLAIM_NUMB);
+    UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_TYPE',
+                                 P_VALUE => P_CLAIM_TYPE);
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_VERSION',
                                  P_VALUE => P_CLAIM_VERS);
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_RELEASE',
@@ -889,7 +927,8 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
              0 as NACTION_CODE,
              H.SEVENT_TYPE_NAME,
              H.SSEND,
-             H.STEXT
+             H.STEXT,
+             H.NNOTE
         from UDO_V_CLAIM_HIST H
        where H.NPRN = P_RN
        order by DCHANGE_DATE asc;
@@ -956,6 +995,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
                 L_HISTTAB(I - 1).CFLAG := FLAG_COMMENT_OTHER;
               end if;
               L_HISTTAB(I - 1).STEXT := L_HISTTAB(I).STEXT;
+              L_HISTTAB(I - 1).NNOTE := L_HISTTAB(I).NNOTE;
             end if;
           end if;
           if (I < L_HISTTAB.COUNT) and L_TRIGGER then
@@ -1012,6 +1052,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
           L_REC.S05 := L_HISTTAB(I).SSEND;
         end if;
         L_REC.S06 := L_HISTTAB(I).STEXT;
+        L_REC.N02 := L_HISTTAB(I).NNOTE;
         pipe row(L_REC);
       end if;
     end loop;
@@ -1023,7 +1064,8 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       select NRN,
              SFILE_PATH,
              NVL(NSIZE,
-                 0) NSIZE
+                 0) NSIZE,
+             NMY
         from UDO_V_CLAIMS_FILELINKS M
        where NPRN = P_PRN
        order by SCODE;
@@ -1039,6 +1081,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       L_REC.S01 := L_DOC.SFILE_PATH;
       L_REC.N01 := L_DOC.NRN;
       L_REC.N02 := L_DOC.NSIZE;
+      L_REC.N03 := L_DOC.NMY;
       pipe row(L_REC);
     end loop;
     close LC_DOCS;
@@ -1332,6 +1375,28 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     close LC_PERS;
   end;
 
+  function GET_ALL_STATUSES return T_MOB_REP
+    pipelined is
+    cursor LC_STATUSES is
+      select distinct T.SEVNSTAT_CODE
+        from V_CLNEVNTYPSTS T
+       where NCRN = EVENT_TYPE_CRN
+       order by 1;
+    L_STATUS LC_STATUSES%rowtype;
+    L_REC    T_MOB_REP_REC;
+  begin
+    open LC_STATUSES;
+    loop
+      fetch LC_STATUSES
+        into L_STATUS;
+      exit when LC_STATUSES%notfound;
+      L_REC     := G_EMPTY_REC;
+      L_REC.S01 := L_STATUS.SEVNSTAT_CODE;
+      pipe row(L_REC);
+    end loop;
+    close LC_STATUSES;
+  end;
+
   function GET_APPS_BY_UNIT(P_UNIT varchar2) return T_MOB_REP
     pipelined is
     L_SQL PKG_STD.TSQL;
@@ -1433,6 +1498,111 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     close LC_POINTS;
   end;
 
+  function GET_OTHER_EXECUTORS(P_RN in number) return T_MOB_REP
+    pipelined is
+    cursor LC_EXECS is
+      select T.PERSON_CODE,
+             A.AGNABBR,
+             T.POST_CODE,
+             T.DIVISION_CODE
+        from V_EVRTPTEXEC_PERSON T,
+             CLNPERSONS          PRS,
+             AGNLIST             A,
+             CLNEVENTS           E,
+             EVRTPOINTS          PNT
+       where E.RN = P_RN
+         and PNT.EVENT_STATUS = E.EVENT_STAT
+         and T.EVENT is null
+         and T.POINT = PNT.RN
+         and T.PERSON = PRS.RN
+         and PRS.PERS_AGENT = A.RN
+         and (E.SEND_PERSON is null or T.PERSON != E.SEND_PERSON)
+       order by T.PERSON_CODE;
+    L_EXEC LC_EXECS %rowtype;
+    L_REC  T_MOB_REP_REC;
+  begin
+    open LC_EXECS;
+    loop
+      fetch LC_EXECS
+        into L_EXEC;
+      exit when LC_EXECS%notfound;
+      L_REC     := G_EMPTY_REC;
+      L_REC.S01 := L_EXEC.PERSON_CODE;
+      L_REC.S02 := STRCOMBINE(L_EXEC.AGNABBR,
+                              BRACKET_(STRCOMBINE(L_EXEC.POST_CODE,
+                                                  L_EXEC.DIVISION_CODE,
+                                                  ', ')),
+                              ' ');
+      pipe row(L_REC);
+    end loop;
+    close LC_EXECS;
+  end;
+
+  procedure ACT_ADD_NOTE
+  (
+    P_RN          in number,
+    P_NOTE_HEADER in varchar2,
+    P_NOTE        in varchar2
+  ) is
+  
+  begin
+    P_CLNEVNOTES_INSERT(NCOMPANY     => PKG_SESSION.GET_COMPANY,
+                        NPRN         => P_RN,
+                        SCLIENT      => null,
+                        SAUTHID      => null,
+                        SNOTE_HEADER => P_NOTE_HEADER,
+                        SNOTE        => P_NOTE,
+                        NRN          => PKG_STD.VREF);
+  end;
+
+  procedure GET_NOTE_ATTR
+  (
+    P_RN          in number,
+    P_NOTE_HEADER out varchar2,
+    P_NOTE        out varchar2
+  ) is
+    cursor LC_NOTES is
+      select EN.RN,
+             EN.HEADER,
+             NT.CODE,
+             NH.NOTE
+        from CLNEVNOTES       EN,
+             CLNEVNOTESHIST   NH,
+             CLNEVNTYPENOTES  TN,
+             CLNEVNTNOTETYPES NT
+       where EN.RN = NH.PRN
+         and EN.HEADER = TN.RN
+         and TN.NOTE_TYPE = NT.RN
+         and EN.CHANGE_DATE = NH.CHANGE_DATE
+         and EN.RN = P_RN
+         and exists
+       (select * from V_USERPRIV UP where UP.CATALOG = EN.CRN);
+    L_NOTE LC_NOTES%rowtype;
+  begin
+    open LC_NOTES;
+    fetch LC_NOTES
+      into L_NOTE;
+    close LC_NOTES;
+    if L_NOTE.RN is null then
+      PKG_MSG.RECORD_NOT_FOUND(P_RN,
+                               'ClientEventsNotes');
+    end if;
+    P_NOTE        := L_NOTE.NOTE;
+    P_NOTE_HEADER := L_NOTE.CODE;
+  end;
+
+  procedure ACT_EDIT_NOTE
+  (
+    P_RN   in number,
+    P_NOTE in varchar2
+  ) is
+  begin
+    P_CLNEVNOTES_UPDATE(NCOMPANY => PKG_SESSION.GET_COMPANY,
+                        NRN      => P_RN,
+                        SAUTHID  => null,
+                        SNOTE    => P_NOTE);
+  end;
+
   function GET_NEXTPOINT_EXECUTORS
   (
     P_RN    in number,
@@ -1486,9 +1656,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       L_REC     := G_EMPTY_REC;
       L_REC.S01 := L_EXEC.PERSON_CODE;
       L_REC.S02 := STRCOMBINE(L_EXEC.AGNABBR,
-                              (STRCOMBINE(L_EXEC.POST_CODE,
-                                          L_EXEC.DIVISION_CODE,
-                                          ', ')),
+                              BRACKET_(STRCOMBINE(L_EXEC.POST_CODE,
+                                                  L_EXEC.DIVISION_CODE,
+                                                  ', ')),
                               ' ');
       pipe row(L_REC);
     end loop;

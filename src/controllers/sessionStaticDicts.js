@@ -93,12 +93,12 @@ staticDicts.getAllPersons = async (socket, {sessionID}) => {
   const sql = `
     select
         S01 as "label",
-        S02 as "code"
-      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_PERSON)
+        S01 as "code"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_STATUSES)
   `
   try {
     const res = await db.execute(sessionID, sql)
-    socket.emit(sockOk(SE_STATDICT_ALL_PERSONS), {persons: res.rows})
+    socket.emit(sockOk(SE_STATDICT_ALL_STATUSES), {statuses: res.rows})
   } catch (e) {
     log.error(e)
   }
