@@ -99,7 +99,9 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_CLAIM_BUILD   out varchar2,
     P_CLAIM_UNIT    out varchar2,
     P_CLAIM_APP     out varchar2,
+    P_CLAIM_AUTHOR  out varchar2,
     P_CLAIM_IM_INIT out number,
+    P_CLAIM_EXEC    out varchar2,
     P_CLAIM_IM_PERF out number,
     P_CLAIM_CONTENT out varchar2
   );
@@ -127,7 +129,9 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_CLAIM_BUILD   in varchar2,
     P_CLAIM_UNIT    in varchar2,
     P_CLAIM_APP     in varchar2,
+    P_CLAIM_AUTHOR  in varchar2,
     P_CLAIM_IM_INIT in number,
+    P_CLAIM_EXEC    in varchar2,
     P_CLAIM_IM_PERF in number,
     P_CLAIM_CONTENT in varchar2,
     P_OUT_RN        out number
@@ -722,18 +726,21 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     P_RN            in out number,
     P_FILTER_NAME   out varchar2,
     P_CLAIM_NUMB    out varchar2,
-		P_CLAIM_TYPE    out varchar2,
-		P_CLAIM_STATUS  out varchar2,
+    P_CLAIM_TYPE    out varchar2,
+    P_CLAIM_STATUS  out varchar2,
     P_CLAIM_VERS    out varchar2,
     P_CLAIM_RELEASE out varchar2,
     P_CLAIM_BUILD   out varchar2,
     P_CLAIM_UNIT    out varchar2,
     P_CLAIM_APP     out varchar2,
+    P_CLAIM_AUTHOR  out varchar2,
     P_CLAIM_IM_INIT out number,
+    P_CLAIM_EXEC    out varchar2,
     P_CLAIM_IM_PERF out number,
     P_CLAIM_CONTENT out varchar2
   ) is
-    L_RN PKG_STD.TREF;
+    L_RN  PKG_STD.TREF;
+    L_STR PKG_STD.TSTRING;
   begin
     L_RN := P_RN;
     if L_RN is not null then
@@ -767,8 +774,20 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
                                             'APP_COND_APPLICATION',
                                             P_CLAIM_APP);
       UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
+                                            'APP_COND_AUTHOR',
+                                            L_STR);
+      P_CLAIM_AUTHOR := replace(L_STR,
+                                ' ',
+                                '#');
+      UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
                                             'APP_COND_INIT_IS_ME',
                                             P_CLAIM_IM_INIT);
+      UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
+                                            'APP_COND_EXECUTOR',
+                                            L_STR);
+      P_CLAIM_EXEC := replace(L_STR,
+                              ' ',
+                              '#');
       UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
                                             'APP_COND_PERF_IS_ME',
                                             P_CLAIM_IM_PERF);
@@ -856,7 +875,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     P_CLAIM_BUILD   in varchar2,
     P_CLAIM_UNIT    in varchar2,
     P_CLAIM_APP     in varchar2,
+    P_CLAIM_AUTHOR  in varchar2,
     P_CLAIM_IM_INIT in number,
+    P_CLAIM_EXEC    in varchar2,
     P_CLAIM_IM_PERF in number,
     P_CLAIM_CONTENT in varchar2,
     P_OUT_RN        out number
@@ -888,13 +909,20 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
                                  P_VALUE => P_CLAIM_UNIT);
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_APPLICATION',
                                  P_VALUE => P_CLAIM_APP);
+    UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_AUTHOR',
+                                 P_VALUE => replace(P_CLAIM_AUTHOR,
+                                                    '#',
+                                                    ' '));
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_INIT_IS_ME',
                                  P_VALUE => P_CLAIM_IM_INIT);
+    UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_EXECUTOR',
+                                 P_VALUE => replace(P_CLAIM_EXEC,
+                                                    '#',
+                                                    ' '));
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_PERF_IS_ME',
                                  P_VALUE => P_CLAIM_IM_PERF);
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_CONTENT',
                                  P_VALUE => P_CLAIM_CONTENT);
-  
     UDO_PKG_COND_STORE.EPILOGUE(P_RN => P_OUT_RN);
   end;
 

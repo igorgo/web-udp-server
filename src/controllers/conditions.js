@@ -39,7 +39,9 @@ async function getClaimCondition (socket, {sessionID, conditionId}) {
           P_CLAIM_BUILD   => :P_CLAIM_BUILD,
           P_CLAIM_UNIT    => :P_CLAIM_UNIT,
           P_CLAIM_APP     => :P_CLAIM_APP,
+          P_CLAIM_AUTHOR  => :P_CLAIM_AUTHOR,
           P_CLAIM_IM_INIT => :P_CLAIM_IM_INIT,
+          P_CLAIM_EXEC    => :P_CLAIM_EXEC,
           P_CLAIM_IM_PERF => :P_CLAIM_IM_PERF,
           P_CLAIM_CONTENT => :P_CLAIM_CONTENT
         );
@@ -56,7 +58,9 @@ async function getClaimCondition (socket, {sessionID, conditionId}) {
     params.add('P_CLAIM_BUILD').dirOut().typeString(1000)
     params.add('P_CLAIM_UNIT').dirOut().typeString(1000)
     params.add('P_CLAIM_APP').dirOut().typeString(1000)
+    params.add('P_CLAIM_AUTHOR').dirOut().typeString(1000)
     params.add('P_CLAIM_IM_INIT').dirOut().typeNumber()
+    params.add('P_CLAIM_EXEC').dirOut().typeString(1000)
     params.add('P_CLAIM_IM_PERF').dirOut().typeNumber()
     params.add('P_CLAIM_CONTENT').dirOut().typeString(1000)
     try {
@@ -79,7 +83,9 @@ async function saveClaimCondition (socket, {
   claimBuild,
   claimUnit,
   claimApp,
+  claimAuthor,
   imInitiator,
+  claimExecutor,
   imExecutor,
   claimContent,
   sessionID
@@ -99,7 +105,9 @@ async function saveClaimCondition (socket, {
       P_CLAIM_BUILD   => :P_CLAIM_BUILD,
       P_CLAIM_UNIT    => :P_CLAIM_UNIT,
       P_CLAIM_APP     => :P_CLAIM_APP,
+      P_CLAIM_AUTHOR  => :P_CLAIM_AUTHOR,
       P_CLAIM_IM_INIT => :P_CLAIM_IM_INIT,
+      P_CLAIM_EXEC    => :P_CLAIM_EXEC,
       P_CLAIM_IM_PERF => :P_CLAIM_IM_PERF,
       P_CLAIM_CONTENT => :P_CLAIM_CONTENT,
       P_OUT_RN        => :P_OUT_RN
@@ -116,7 +124,9 @@ async function saveClaimCondition (socket, {
   params.add('P_CLAIM_BUILD').dirIn().typeString().val(claimBuild)
   params.add('P_CLAIM_UNIT').dirIn().typeString().val(claimUnit)
   params.add('P_CLAIM_APP').dirIn().typeString().val(claimApp)
+  params.add('P_CLAIM_AUTHOR').dirIn().typeString().val(claimAuthor)
   params.add('P_CLAIM_IM_INIT').dirIn().typeNumber().val(imInitiator)
+  params.add('P_CLAIM_EXEC').dirIn().typeString().val(claimExecutor)
   params.add('P_CLAIM_IM_PERF').dirIn().typeNumber().val(imExecutor)
   params.add('P_CLAIM_CONTENT').dirIn().typeString().val(claimContent)
   params.add('P_OUT_RN').dirOut().typeNumber()
