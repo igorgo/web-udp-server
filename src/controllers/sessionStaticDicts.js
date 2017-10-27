@@ -11,7 +11,8 @@ const {
   SE_STATDICT_ALL_BUILDS,
   SE_STATDICT_ALL_PERSONS,
   SE_APPS_BY_UNIT,
-  SE_UNITFUNCS_BY_UNIT
+  SE_UNITFUNCS_BY_UNIT,
+  SE_STATDICT_ALL_STATUSES
 } = require('../socket-events')
 
 staticDicts.getAllUnits = async (socket, {sessionID}) => {
@@ -93,7 +94,20 @@ staticDicts.getAllPersons = async (socket, {sessionID}) => {
   const sql = `
     select
         S01 as "label",
-        S01 as "code"
+        S02 as "code"
+      from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_PERSON)
+  `
+  try {
+    const res = await db.execute(sessionID, sql)
+    socket.emit(sockOk(SE_STATDICT_ALL_PERSONS), {persons: res.rows})
+  } catch (e) {
+    log.error(e)
+  }
+}
+
+staticDicts.getAllStatuses = async (socket, {sessionID}) => {
+  const sql = `
+    select S01 as "code"
       from table(UDO_PACKAGE_NODEWEB_IFACE.GET_ALL_STATUSES)
   `
   try {

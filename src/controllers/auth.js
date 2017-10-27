@@ -43,6 +43,7 @@ async function login(socket, { user, pass }) {
     void sessionStatic.getAllApps(socket, {sessionID: res.sessionID})
     void sessionStatic.getAllBuilds(socket, {sessionID: res.sessionID})
     void sessionStatic.getAllPersons(socket, {sessionID: res.sessionID})
+    void sessionStatic.getAllStatuses(socket, {sessionID: res.sessionID})
   } catch (e) {
     log.error(e)
     socket.emit(sockErr(SE_AUTH_LOGIN), {message: log.oraErrorExtract(e.message)})

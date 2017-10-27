@@ -33,6 +33,7 @@ async function getClaimCondition (socket, {sessionID, conditionId}) {
           P_FILTER_NAME   => :P_FILTER_NAME,
           P_CLAIM_NUMB    => :P_CLAIM_NUMB,
           P_CLAIM_TYPE    => :P_CLAIM_TYPE,
+          P_CLAIM_STATUS  => :P_CLAIM_STATUS,
           P_CLAIM_VERS    => :P_CLAIM_VERS,
           P_CLAIM_RELEASE => :P_CLAIM_RELEASE,
           P_CLAIM_BUILD   => :P_CLAIM_BUILD,
@@ -49,6 +50,7 @@ async function getClaimCondition (socket, {sessionID, conditionId}) {
     params.add('P_FILTER_NAME').dirOut().typeString(1000)
     params.add('P_CLAIM_NUMB').dirOut().typeString(1000)
     params.add('P_CLAIM_TYPE').dirOut().typeString(1000)
+    params.add('P_CLAIM_STATUS').dirOut().typeString(4000)
     params.add('P_CLAIM_VERS').dirOut().typeString(1000)
     params.add('P_CLAIM_RELEASE').dirOut().typeString(1000)
     params.add('P_CLAIM_BUILD').dirOut().typeString(1000)
@@ -71,6 +73,7 @@ async function saveClaimCondition (socket, {
   name,
   claimNumb,
   claimType,
+  claimStatus,
   claimVersion,
   claimRelease,
   claimBuild,
@@ -90,6 +93,7 @@ async function saveClaimCondition (socket, {
       P_FILTER_NAME   => :P_FILTER_NAME,
       P_CLAIM_NUMB    => :P_CLAIM_NUMB,
       P_CLAIM_TYPE    => :P_CLAIM_TYPE,
+      P_CLAIM_STATUS  => :P_CLAIM_STATUS,
       P_CLAIM_VERS    => :P_CLAIM_VERS,
       P_CLAIM_RELEASE => :P_CLAIM_RELEASE,
       P_CLAIM_BUILD   => :P_CLAIM_BUILD,
@@ -106,6 +110,7 @@ async function saveClaimCondition (socket, {
   params.add('P_FILTER_NAME').dirIn().typeString().val(name)
   params.add('P_CLAIM_NUMB').dirIn().typeString().val(claimNumb)
   params.add('P_CLAIM_TYPE').dirIn().typeString().val(claimType)
+  params.add('P_CLAIM_STATUS').dirIn().typeString().val(claimStatus)
   params.add('P_CLAIM_VERS').dirIn().typeString().val(claimVersion)
   params.add('P_CLAIM_RELEASE').dirIn().typeString().val(claimRelease)
   params.add('P_CLAIM_BUILD').dirIn().typeString().val(claimBuild)

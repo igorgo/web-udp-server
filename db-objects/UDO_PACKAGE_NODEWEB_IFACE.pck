@@ -93,6 +93,7 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_FILTER_NAME   out varchar2,
     P_CLAIM_NUMB    out varchar2,
     P_CLAIM_TYPE    out varchar2,
+    P_CLAIM_STATUS  out varchar2,
     P_CLAIM_VERS    out varchar2,
     P_CLAIM_RELEASE out varchar2,
     P_CLAIM_BUILD   out varchar2,
@@ -120,6 +121,7 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
     P_FILTER_NAME   in varchar2,
     P_CLAIM_NUMB    in varchar2,
     P_CLAIM_TYPE    in varchar2,
+    P_CLAIM_STATUS  in varchar2,
     P_CLAIM_VERS    in varchar2,
     P_CLAIM_RELEASE in varchar2,
     P_CLAIM_BUILD   in varchar2,
@@ -721,6 +723,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     P_FILTER_NAME   out varchar2,
     P_CLAIM_NUMB    out varchar2,
 		P_CLAIM_TYPE    out varchar2,
+		P_CLAIM_STATUS  out varchar2,
     P_CLAIM_VERS    out varchar2,
     P_CLAIM_RELEASE out varchar2,
     P_CLAIM_BUILD   out varchar2,
@@ -745,6 +748,9 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
                                             'APP_COND_TYPE',
                                             P_CLAIM_TYPE);
+      UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
+                                            'APP_COND_STATE',
+                                            P_CLAIM_STATUS);
       UDO_PKG_COND_STORE.GET_STORE_ATTR_VAL(L_RN,
                                             'APP_COND_VERSION',
                                             P_CLAIM_VERS);
@@ -844,6 +850,7 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
     P_FILTER_NAME   in varchar2,
     P_CLAIM_NUMB    in varchar2,
     P_CLAIM_TYPE    in varchar2,
+    P_CLAIM_STATUS  in varchar2,
     P_CLAIM_VERS    in varchar2,
     P_CLAIM_RELEASE in varchar2,
     P_CLAIM_BUILD   in varchar2,
@@ -865,11 +872,12 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
                                        P_VALUE => PKG_SESSION_VARS.GET_NUM(SESS_V_DEPT_RN));
         APP_COND_CONTENT_IN_NOTE = 1
     */
-  
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_NUMBER',
                                  P_VALUE => P_CLAIM_NUMB);
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_TYPE',
                                  P_VALUE => P_CLAIM_TYPE);
+    UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_STATE',
+                                 P_VALUE => P_CLAIM_STATUS);
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_VERSION',
                                  P_VALUE => P_CLAIM_VERS);
     UDO_PKG_COND_STORE.ADD_VALUE(P_NAME  => 'APP_COND_RELEASE',
