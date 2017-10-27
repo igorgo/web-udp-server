@@ -255,6 +255,8 @@ create or replace package UDO_PACKAGE_NODEWEB_IFACE is
 
   function GET_ALL_STATUSES return T_MOB_REP
     pipelined;
+		
+	procedure ACT_DOC_DELETE(P_RN in number);	
 
 end UDO_PACKAGE_NODEWEB_IFACE;
 /
@@ -1699,6 +1701,24 @@ create or replace package body UDO_PACKAGE_NODEWEB_IFACE is
       pipe row(L_REC);
     end loop;
     close LC_EXECS;
+  end;
+
+  procedure ACT_DOC_DELETE(P_RN in number) is
+    L_CNT number;
+  begin
+    select count(*)
+      into L_CNT
+      from DUAL
+     where exists (select *
+              from FILELINKSHIST
+             where PRN = P_RN
+               and authid = UTILIZER);
+    if L_CNT = 0 then
+      P_EXCEPTION(0,
+                  'Дозволено видаляти тільки файли, які завантажили Ви!');
+    end if;
+    P_FILELINKS_DELETE(NCOMPANY => PKG_SESSION.GET_COMPANY,
+                       NRN      => P_RN);
   end;
 
 begin

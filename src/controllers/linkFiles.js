@@ -7,7 +7,8 @@ const {
   sockOk,
   SE_LINKFILES_FIND,
   SE_LINKFILES_DOWNLOAD,
-  SE_LINKFILES_UPLOAD
+  SE_LINKFILES_UPLOAD,
+  SE_LINKFILES_DELETE
 } = require('../socket-events')
 
 const linkFiles = module.exports
@@ -113,6 +114,24 @@ linkFiles.init = socket => {
   })
   socket.on(SE_LINKFILES_UPLOAD, (pl) => {
     void actClaimAttachFile(socket, pl)
+  })
+  socket.on(SE_LINKFILES_DELETE, async ({sessionID, id}) => {
+    if (!checkSession(socket, sessionID)) return
+    const sql = `
+    begin
+      UDO_PACKAGE_NODEWEB_IFACE.ACT_DOC_DELETE(
+        P_RN       => :RN
+      );
+    end;`
+    const params = db.createParams()
+    params.add('RN').dirIn().typeNumber().val(id)
+    try {
+      const res = await db.execute(sessionID, sql, params)
+      socket.emit(sockOk(SE_LINKFILES_DELETE), {id})
+    }
+    catch (e) {
+      emitExecutionError(e, socket)
+    }
   })
 }
 linkFiles.getClaimFiles = getClaimFiles
