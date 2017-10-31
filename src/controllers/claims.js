@@ -25,7 +25,10 @@ const {
   SE_CLAIMS_CURREXECS_FIND,
   SE_CLAIMS_NOTE_INSERT,
   SE_CLAIMS_NOTE_UPDATE,
-  SE_CLAIMS_NOTE_FIND_ONE
+  SE_CLAIMS_NOTE_FIND_ONE,
+  SE_CLAIMS_PRIRITIZE,
+  SE_CLAIMS_HELP_NEED,
+  SE_CLAIMS_HELP_STATUS
 } = require('../socket-events')
 
 const claims = module.exports
@@ -581,6 +584,70 @@ claims.init = socket => {
         header: res.outBinds['P_NOTE_HEADER'],
         note: res.outBinds['P_NOTE'],
       })
+    }
+    catch (e) {
+      emitExecutionError(e, socket)
+    }
+  })
+  socket.on(SE_CLAIMS_PRIRITIZE,async ({sessionID, id, priority}) => {
+    if (!checkSession(socket, sessionID)) return
+    const sql=`
+      begin
+        P_CLNEVENTS_SET_PRIORITY(
+          NRN => :NRN,
+          NCOMPANY => :NCOMPANY,
+          NPRIORITY => :NPRIORITY
+        );
+      end;`
+    const params = db.createParams()
+    params.add('NRN').dirIn().typeNumber().val(id)
+    params.add('NCOMPANY').dirIn().typeNumber().val(sessions.get(sessionID, 'NCOMPANY'))
+    params.add('NPRIORITY').dirIn().typeNumber().val(priority)
+    try {
+      const res = (await db.execute(sessionID, sql, params))
+      socket.emit(sockOk(SE_CLAIMS_PRIRITIZE), {id})
+    }
+    catch (e) {
+      emitExecutionError(e, socket)
+    }
+  })
+  socket.on(SE_CLAIMS_HELP_NEED,async ({sessionID, id, status, note}) => {
+    if (!checkSession(socket, sessionID)) return
+    const sql=`
+      begin
+        UDO_PKG_CLAIMS.CLAIM_HELPSIGN_NEED(
+          NRN => :NRN,
+          NSTATUS => :NSTATUS,
+          SNOTE => :SNOTE
+        );
+      end;`
+    const params = db.createParams()
+    params.add('NRN').dirIn().typeNumber().val(id)
+    params.add('NSTATUS').dirIn().typeNumber().val(status)
+    params.add('SNOTE').dirIn().typeString().val(note)
+    try {
+      const res = (await db.execute(sessionID, sql, params))
+      socket.emit(sockOk(SE_CLAIMS_HELP_NEED), {id, status})
+    }
+    catch (e) {
+      emitExecutionError(e, socket)
+    }
+  })
+  socket.on(SE_CLAIMS_HELP_STATUS,async ({sessionID, id, status}) => {
+    if (!checkSession(socket, sessionID)) return
+    const sql=`
+      begin
+        UDO_PKG_CLAIMS.CLAIM_HELPSIGN_STAT(
+          NRN => :NRN,
+          NSTATUS => :NSTATUS
+        );
+      end;`
+    const params = db.createParams()
+    params.add('NRN').dirIn().typeNumber().val(id)
+    params.add('NSTATUS').dirIn().typeNumber().val(status)
+    try {
+      const res = (await db.execute(sessionID, sql, params))
+      socket.emit(sockOk(SE_CLAIMS_HELP_STATUS), {id, status})
     }
     catch (e) {
       emitExecutionError(e, socket)
