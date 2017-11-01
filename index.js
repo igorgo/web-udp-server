@@ -4,8 +4,8 @@ global.rootRequire = function(name) {
   return require(__dirname + '/' + name);
 }
 
-// const cluster = require('cluster')
-// const numCPUs = require('os').cpus().length
+const cluster = require('cluster')
+const numCPUs = require('os').cpus().length
 const path = require('path')
 const fs = require('fs')
 const pkg = require('./package.json')
@@ -57,9 +57,15 @@ async function versionCheck() {
 }
 
 function addProcessHandlers() {
-  process.on('SIGTERM', shutdown)
-  process.on('SIGINT', shutdown)
-  process.on('SIGHUP', shutdown)
+  process.on('SIGTERM', async () => {
+    await shutdown(0)
+  })
+  process.on('SIGINT', async () => {
+    await shutdown(0)
+  })
+  process.on('SIGHUP', async () => {
+    await shutdown(0)
+  })
   process.on('message', message => {
     if (typeof message !== 'object') {
       return
@@ -72,58 +78,62 @@ function addProcessHandlers() {
 
   process.on('uncaughtException', async err => {
     await log.error(err)
-    await shutdown(1)
+    await shutdown(2)
   })
   process.on('unhandledRejection', async err => {
     await log.error(err)
-    await shutdown(1)
+    await shutdown(2)
   })
 }
 
 async function runServer() {
   await loadConfig()
   await log.init()
-  addProcessHandlers()
+  await log.open()
+
+  /* addProcessHandlers()
   await versionCheck()
   process.isMaster = true
   await log.open()
   await db.open()
   void require('./src/server').listen()
-/*
-
+  */
   if (cluster.isMaster) {
     // Fork workers.
+    process.on('SIGINT', async () => {
+      await shutdown(0)
+    })
     await versionCheck()
     for (let i = 0; i < numCPUs; ++i) {
       cluster.fork()
     }
-    if (nconf.get('daemon')) {
+    /* if (nconf.get('daemon')) {
       return require('daemon')({
         stdout: process.stdout,
         stderr: process.stderr,
         cwd: process.cwd()
       })
-    }
+    }*/
 
     cluster.on('exit', (worker, code, signal) => {
       process.stdout.write('worker ' + worker.process.pid + ' died\n')
+      if (code===2) cluster.fork()
     })
     process.isMaster = true
     process.isWorker = false
   } else {
+    addProcessHandlers()
     process.isMaster = false
     process.isWorker = true
-    await log.open()
     await db.open()
     void require('./src/server').listen()
   }
-*/
-
 }
 
 async function shutdown(code) {
-  // if (process.isMaster) return
-  await log.server('Shutdown (SIGTERM/SIGINT) Initialised.')
+  if (process.isMaster && code===2) return
+  const msg = code===2 ? 'The worker will be restarted due error.' : 'Shutdown (SIGTERM/SIGINT) Initialised.'
+  await log.server(msg)
   try {
     await db.close()
     await log.server('Database connection closed.')
@@ -132,7 +142,8 @@ async function shutdown(code) {
   }
   await log.server('Shutdown complete.')
   await log.close()
-  process.exit(code || 0)
+
+  process.exit(code)
 }
 
 void runServer()

@@ -78,7 +78,9 @@ log.init = () => {
     const nextDate = new Date()
     await Promise.all(_.map(
       log.fileTypes,
-      async fileType => await log.openFile(fileType)
+      async fileType => {
+        await log.openFile(fileType)
+      }
     ))
     log.active = true
     nextDate.setUTCHours(0, 0, 0, 0)
@@ -142,7 +144,12 @@ log.init = () => {
           resolve()
           return
         }
-        fs.unlink(filePath, resolve)
+        if (process.isMaster) {
+          fs.unlink(filePath, resolve)
+        }
+        else {
+          resolve()
+        }
       })
     })
   })

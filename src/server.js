@@ -11,6 +11,7 @@ const server = http.createServer((request, response) => {
 })
 
 const io = require('socket.io').listen(server)
+io.origins('*:*')
 io.on('connection', socket => {
   socket.auth = false
   controllers.initAll(socket)

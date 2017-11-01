@@ -168,7 +168,7 @@ class OraSqlParams {
 const db = module.exports
 
 // Constants
-const SESSION_TIMEOUT_MINUTES = 60
+const SESSION_TIMEOUT_MINUTES = 480
 
 const SESSION_IMPLEMENTATION = 'Client'
 

@@ -5,7 +5,6 @@ const db = require('../db')
 const {checkSession, emitExecutionError} = require('./routine')
 // const log = require('../logger')
 const { getClaimFiles } = require('./linkFiles')
-const sessions = require('../sessions')
 const {
   sockOk,
   SE_CLAIMS_FIND,
@@ -427,8 +426,7 @@ async function getClaimCurrentExecutors (socket, { sessionID, id }) {
 async function getClaimRetMessage (socket, { sessionID, id }) {
   const sql = `
     begin
-      FIND_CLNEVENTS_RETPOINT(
-        NCOMPANY   => :NCOMPANY,
+      UDO_PACKAGE_NODEWEB_IFACE.FIND_RETPOINT(
         NRN        => :NRN,
         NPOINT_OUT => :NPOINT_OUT,
         SCOMMENTRY => :SCOMMENTRY
@@ -436,7 +434,6 @@ async function getClaimRetMessage (socket, { sessionID, id }) {
     end;`
   const params = db.createParams()
   params.add('NRN').dirIn().typeNumber().val(id)
-  params.add('NCOMPANY').dirIn().typeNumber().val(sessions.get(sessionID, 'NCOMPANY'))
   params.add('NPOINT_OUT').dirOut().typeNumber()
   params.add('SCOMMENTRY').dirOut().typeString(1000)
   try {
@@ -593,15 +590,13 @@ claims.init = socket => {
     if (!checkSession(socket, sessionID)) return
     const sql=`
       begin
-        P_CLNEVENTS_SET_PRIORITY(
+        UDO_PACKAGE_NODEWEB_IFACE.SET_PRIORITY(
           NRN => :NRN,
-          NCOMPANY => :NCOMPANY,
           NPRIORITY => :NPRIORITY
         );
       end;`
     const params = db.createParams()
     params.add('NRN').dirIn().typeNumber().val(id)
-    params.add('NCOMPANY').dirIn().typeNumber().val(sessions.get(sessionID, 'NCOMPANY'))
     params.add('NPRIORITY').dirIn().typeNumber().val(priority)
     try {
       const res = (await db.execute(sessionID, sql, params))
